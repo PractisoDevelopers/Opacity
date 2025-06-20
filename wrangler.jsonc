@@ -1,0 +1,23 @@
+/**
+ * For more details on how to configure Wrangler, refer to:
+ * https://developers.cloudflare.com/workers/wrangler/configuration/
+ */
+{
+	"$schema": "node_modules/wrangler/config-schema.json",
+	"name": "practiso-opacity",
+	"main": "src/index.ts",
+	"compatibility_date": "2025-06-20",
+	"observability": {
+		"enabled": true
+	},
+	"placement": {
+		"mode": "smart"
+	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "practiso-opacity",
+			"database_id": "902a94ba-3870-4894-b069-503c36bd9055"
+		}
+	]
+}
