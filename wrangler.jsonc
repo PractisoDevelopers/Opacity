@@ -22,6 +22,7 @@
 	],
 	"route": {
 		"zone_name": "zhufucdev.com",
-		"pattern": "practiso.zhufucdev.com/api/*"
+		"pattern": "practiso.zhufucdev.com/api/*",
+		"custom_domain": true
 	}
 }
