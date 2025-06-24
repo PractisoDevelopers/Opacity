@@ -7,11 +7,15 @@ import { clientIdSize } from './magic';
 import { Prisma } from '@prisma/client';
 import { jwtAuth } from './anoJwt';
 import * as jwt from 'hono/jwt';
+import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 interface Env {
 	PSARCHIVE_BUCKET: R2Bucket;
 	DATABASE_URL: string;
 	JWT_SECRET: string;
+	S3_API_URL: string;
+	S3_BUCKET_NAME: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -49,7 +53,7 @@ app.put('/upload', async (c) => {
 	try {
 		const parser = new Parser();
 		await checking.pipeThrough(new DecompressionStream('gzip')).pipeTo(parser.sink);
-		const archive = await parser.result();
+		await parser.result();
 	} catch (e) {
 		if (e instanceof ArchiveParseError) {
 			throw new HTTPException(400, { message: `Invalid content: ${e.message}.` });
@@ -81,7 +85,7 @@ app.put('/upload', async (c) => {
 		const clientId = nanoid(clientIdSize);
 		const clientName = body['client-name'];
 		if (!clientName) {
-			throw new HTTPException(400, { message: 'Missing client name.' })
+			throw new HTTPException(400, { message: 'Missing client name.' });
 		}
 		if (typeof clientName !== 'string') {
 			throw new HTTPException(400, { message: 'Bad client name.' });
@@ -115,11 +119,11 @@ app.put('/upload', async (c) => {
 });
 
 app.get('/whoami', async (c) => {
-	const payload = c.get('jwtPayload')
+	const payload = c.get('jwtPayload');
 	if (typeof payload === 'undefined') {
-		throw new HTTPException(401)
+		throw new HTTPException(401);
 	}
-	const {cid} = payload;
+	const { cid } = payload;
 	if (!cid) {
 		throw new HTTPException(400);
 	}
@@ -133,6 +137,31 @@ app.get('/whoami', async (c) => {
 	}
 
 	return c.json({ clientName: client.name, name: client.owner.name });
+});
+
+app.get('/download/:id', async (c) => {
+	const id = c.req.param('id');
+	if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME) {
+		const client = new S3Client({ endpoint: c.env.S3_API_URL });
+		const url = await getSignedUrl(client, new GetObjectCommand({ Key: id, Bucket: c.env.S3_BUCKET_NAME }));
+		if (!url) {
+			throw new HTTPException(404);
+		}
+		return c.redirect(url);
+	}
+
+	const storage = await c.env.PSARCHIVE_BUCKET.get(id);
+	if (!storage) {
+		throw new HTTPException(404);
+	}
+	const ct = storage.httpMetadata?.contentType;
+	return new Response(storage.body, {
+		headers: {
+			etag: storage.httpEtag,
+			'Content-Type': ct ?? 'application/gzip',
+			'Content-Disposition': `attachment; filename="${id}.psarchive"`,
+		},
+	});
 });
 
 export default app satisfies ExportedHandler<Env>;
