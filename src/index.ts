@@ -59,6 +59,8 @@ app.put('/upload', async (c) => {
 			throw new HTTPException(400, { message: `Invalid content: ${e.message}.` });
 		}
 		throw e;
+	} finally {
+		await checking.cancel()
 	}
 
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
