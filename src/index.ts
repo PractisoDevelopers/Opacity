@@ -145,19 +145,19 @@ app.get('/whoami', async (c) => {
 
 app.get('/download/:id', async (c) => {
 	const id = c.req.param('id');
-	if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME) {
+	if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME && c.env.S3_PUBLIC_URL && c.env.S3_ACCESS_KEY_ID && c.env.S3_ACCESS_KEY) {
 		const client = new S3Client({
 			endpoint: c.env.S3_API_URL,
 			region: 'auto',
-			credentials: { accessKeyId: c.env.S3_ACCESS_KEY_ID!, secretAccessKey: c.env.S3_ACCESS_KEY! },
+			credentials: { accessKeyId: c.env.S3_ACCESS_KEY_ID, secretAccessKey: c.env.S3_ACCESS_KEY },
 			endpointProvider(params) {
 				return {
-					url: new URL(`${c.env.S3_PUBLIC_URL}/${params.Bucket}`),
+					url: new URL(c.env.S3_PUBLIC_URL!),
 					headers: {
 						'Content-Type': ['application/gzip'],
 						'Content-Disposition': [`attachment; filename="${id}.psarchive"`],
-					}
-				}
+					},
+				};
 			},
 		});
 		const url = await getSignedUrl(client, new GetObjectCommand({ Key: id, Bucket: c.env.S3_BUCKET_NAME }));
