@@ -115,9 +115,13 @@ app.put('/upload', async (c) => {
 });
 
 app.get('/whoami', async (c) => {
-	const {cid} = c.get('jwtPayload');
+	const payload = c.get('jwtPayload')
+	if (typeof payload === 'undefined') {
+		throw new HTTPException(401)
+	}
+	const {cid} = payload;
 	if (!cid) {
-		throw new HTTPException(401);
+		throw new HTTPException(400);
 	}
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
 	const client = await prisma.client.findUnique({
