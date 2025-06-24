@@ -3,6 +3,9 @@ import { HTTPException } from 'hono/http-exception';
 import * as jwt from 'hono/jwt';
 
 export function jwtAuth(secret: string) {
+	if (!secret) {
+		throw new TypeError('undefined JWT secret')
+	}
 	return createMiddleware(async (c, next) => {
 		const authentication = c.req.header()['authorization'];
 		const bearer = 'Bearer';
