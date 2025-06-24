@@ -173,3 +173,6 @@ dist
 
 .idea
 *.iml
+
+/src/generated/prisma
+/prisma/dummy.sqlite
