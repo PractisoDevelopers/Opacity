@@ -20,7 +20,7 @@ interface Env {
 
 const app = new Hono<{ Bindings: Env }>();
 
-app.use('/*', async (c, next) => {
+app.use('*', async (c, next) => {
 	const middleware = jwtAuth(c.env.JWT_SECRET);
 	return middleware(c, next);
 });
