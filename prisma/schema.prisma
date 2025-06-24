@@ -13,10 +13,15 @@ datasource db {
 }
 
 model Archive {
-  id      String  @id
-  name    String?
-  ownerId Int
-  owner   Owner   @relation(fields: [ownerId], references: [id])
+  id         String   @id
+  name       String?
+  uploadTime DateTime @default(now())
+  updateTime DateTime
+  ownerId    Int
+  owner      Owner    @relation(fields: [ownerId], references: [id])
+
+  @@index([updateTime], type: Brin)
+  @@index([uploadTime], type: Brin)
 }
 
 model Owner {

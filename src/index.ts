@@ -9,6 +9,7 @@ import { jwtAuth } from './anoJwt';
 import * as jwt from 'hono/jwt';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { PractisoArchive } from '@practiso/sdk/lib/model';
 
 interface Env {
 	PSARCHIVE_BUCKET: R2Bucket;
@@ -30,7 +31,69 @@ app.use('*', async (c, next) => {
 
 app.get('/archives', async (c) => {
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
-	return c.json(await prisma.archive.findMany());
+	const query = c.req.query();
+	let sortBy = query['by'],
+		sortOrder = query['order'],
+		predecessor = query['predecessor'];
+
+	if (sortBy) {
+		const mapping: { [key: string]: string } = {
+			name: 'name',
+			upload: 'uploadTime',
+			update: 'updateTime',
+		};
+		if (sortBy in mapping) {
+			sortBy = mapping[sortBy];
+		} else {
+			throw new HTTPException(400, {
+				message: `Bad sort keyword: ${sortBy}. One of ${Object.keys(mapping).join(', ')} was expected.`,
+			});
+		}
+	} else {
+		sortBy = 'name';
+	}
+
+	if (sortOrder) {
+		const expected = ['asc', 'dsc'];
+		if (!expected.includes(sortOrder)) {
+			throw new HTTPException(400, { message: `Bad sort order: ${sortOrder}. One of ${expected.join(', ')} was expected.` });
+		}
+	} else {
+		sortOrder = 'asc';
+	}
+
+	const select = {
+		id: true,
+		name: true,
+		updateTime: true,
+		uploadTime: true,
+		owner: { select: { name: true } },
+	};
+	switch (sortBy) {
+	}
+	if (predecessor) {
+		const find = await prisma.archive.findUnique({ where: { id: predecessor }, select: {} });
+		if (!find) {
+			throw new HTTPException(400, { message: 'Unknown predecessor.' });
+		}
+	}
+	const pagination = (
+		await prisma.archive.findMany({
+			select,
+			orderBy: {
+				[sortBy]: sortOrder,
+			},
+			where: predecessor ? { id: { gt: predecessor } } : undefined,
+			take: 20,
+		})
+	).map((archive) => ({
+		id: archive.id,
+		name: archive.name,
+		uploadTime: archive.uploadTime.toISOString(),
+		updateTime: archive.updateTime.toISOString(),
+		ownerName: archive.owner.name,
+	}));
+	return c.json(pagination);
 });
 
 app.put('/upload', async (c) => {
@@ -46,17 +109,18 @@ app.put('/upload', async (c) => {
 	}
 	const content = body['content'];
 	const name = body['name'] ?? null;
-	const clientIdInsecure: string | null = c.get('jwtPayload')?.cid ?? null;
+	const clientIdInsecure: string | undefined = c.get('jwtPayload')?.cid;
 
 	if (!(content instanceof File) || (name && typeof name !== 'string')) {
 		throw new HTTPException(400, { message: 'Invalid form structure.' });
 	}
 
 	const [checking, putting] = content.stream().tee();
+	let archive: PractisoArchive;
 	try {
 		const parser = new Parser();
 		await checking.pipeThrough(new DecompressionStream('gzip')).pipeTo(parser.sink);
-		await parser.result();
+		archive = await parser.result();
 	} catch (e) {
 		if (e instanceof ArchiveParseError) {
 			throw new HTTPException(400, { message: `Invalid content: ${e.message}.` });
@@ -64,6 +128,13 @@ app.put('/upload', async (c) => {
 		throw e;
 	} finally {
 		await checking.cancel();
+	}
+
+	function getUpdateTime(archive: PractisoArchive) {
+		const updateTimeQuiz = archive.content.reduce((acc, curr) =>
+			(acc.modificationTime ?? acc.creationTime).getTime() > (curr.modificationTime ?? curr.creationTime).getTime() ? acc : curr,
+		);
+		return updateTimeQuiz.modificationTime ?? updateTimeQuiz.creationTime;
 	}
 
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
@@ -78,6 +149,7 @@ app.put('/upload', async (c) => {
 			data: {
 				id: archiveId,
 				name: content.name,
+				updateTime: getUpdateTime(archive),
 				owner: {
 					connect: {
 						id: existingOwner.id,
@@ -99,6 +171,7 @@ app.put('/upload', async (c) => {
 			data: {
 				id: archiveId,
 				name: content.name,
+				updateTime: getUpdateTime(archive),
 				owner: { create: { clients: { create: { id: clientId, name: clientName } } } },
 			},
 		});
