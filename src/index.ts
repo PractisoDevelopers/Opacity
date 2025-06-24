@@ -112,8 +112,7 @@ app.put('/upload', async (c) => {
 				throw new HTTPException(409, { message: 'Fields would cause confliction with other users.' });
 			}
 		}
-		console.error(e);
-		throw new HTTPException(500);
+		throw new HTTPException(500, { cause: e });
 	}
 	return c.json(returnJson);
 });
