@@ -5,13 +5,21 @@ import { HTTPException } from 'hono/http-exception';
 import { ArchiveParseError, Parser } from '@practiso/sdk';
 import { clientIdSize } from './magic';
 import { Prisma } from '@prisma/client';
+import { jwtAuth } from './anoJwt';
+import * as jwt from 'hono/jwt';
 
 interface Env {
 	PSARCHIVE_BUCKET: R2Bucket;
 	DATABASE_URL: string;
+	JWT_SECRET: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
+
+app.use('/*', async (c, next) => {
+	const middleware = jwtAuth(c.env.JWT_SECRET);
+	return middleware(c, next);
+});
 
 app.get('/archives', async (c) => {
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
@@ -31,9 +39,9 @@ app.put('/upload', async (c) => {
 	}
 	const content = body['content'];
 	const name = body['name'] ?? null;
-	const clientIdInsecure = body['client_id'] ?? null;
+	const clientIdInsecure: string | null = c.get('jwtPayload')?.cid ?? null;
 
-	if (!(content instanceof File) || (name && typeof name !== 'string') || (clientIdInsecure && typeof clientIdInsecure !== 'string')) {
+	if (!(content instanceof File) || (name && typeof name !== 'string')) {
 		throw new HTTPException(400, { message: 'Invalid form structure.' });
 	}
 
@@ -71,8 +79,11 @@ app.put('/upload', async (c) => {
 		returnJson = { archiveId };
 	} else {
 		const clientId = nanoid(clientIdSize);
-		const clientName = body['client_name'];
-		if (clientName && typeof clientName !== 'string') {
+		const clientName = body['client-name'];
+		if (!clientName) {
+			throw new HTTPException(400, { message: 'Missing client name.' })
+		}
+		if (typeof clientName !== 'string') {
 			throw new HTTPException(400, { message: 'Bad client name.' });
 		}
 		archiveCreation = prisma.archive.create({
@@ -82,7 +93,9 @@ app.put('/upload', async (c) => {
 				owner: { create: { clients: { create: { id: clientId, name: clientName } } } },
 			},
 		});
-		returnJson = { archiveId, clientId };
+
+		const clientIdSigned = await jwt.sign({ cid: clientId }, c.env.JWT_SECRET);
+		returnJson = { archiveId, jwt: clientIdSigned };
 	}
 
 	try {

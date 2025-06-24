@@ -27,8 +27,8 @@ model Owner {
 }
 
 model Client {
-  id      String  @id
-  owner   Owner   @relation(fields: [ownerId], references: [id])
-  name    String? @db.VarChar(20)
+  id      String @id
+  owner   Owner  @relation(fields: [ownerId], references: [id])
+  name    String @db.VarChar(20)
   ownerId Int
 }

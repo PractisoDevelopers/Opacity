@@ -1,1 +1,1 @@
-export const clientIdSize = 32;
+export const clientIdSize = 12;
