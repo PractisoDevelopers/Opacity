@@ -22,7 +22,7 @@
 	"dependencies": {
 		"@aws-sdk/client-s3": "^3.835.0",
 		"@aws-sdk/s3-request-presigner": "^3.835.0",
-		"@practiso/sdk": "^1.0.0",
+		"@practiso/sdk": "^1.1.0",
 		"@prisma/adapter-neon": "^6.10.1",
 		"@prisma/client": "^6.10.1",
 		"better-sqlite3": "^11.10.0",

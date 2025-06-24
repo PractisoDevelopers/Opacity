@@ -15,8 +15,8 @@ importers:
         specifier: ^3.835.0
         version: 3.835.0
       '@practiso/sdk':
-        specifier: ^1.0.0
-        version: 1.0.0
+        specifier: ^1.1.0
+        version: 1.1.0
       '@prisma/adapter-neon':
         specifier: ^6.10.1
         version: 6.10.1(@neondatabase/serverless@1.0.1)
@@ -696,8 +696,8 @@ packages:
     resolution: {integrity: sha512-O6yC5TT0jbw86VZVkmnzCZJB0hfxBl0JJz6f+3KHoZabjb/X08r9eFA+vuY06z1/qaovykvdkrXYq3SPUuvogA==}
     engines: {node: '>=19.0.0'}
 
-  '@practiso/sdk@1.0.0':
-    resolution: {integrity: sha512-zJHFEsbcAsOeW7L4rVJMvYLoPtz68xLgSN6ZPG/I5nks7vLGoyjKfiX4IdHxt3Ff6G5Mas3uC3aZCJZunYT1ww==}
+  '@practiso/sdk@1.1.0':
+    resolution: {integrity: sha512-L8MUvwySnGuZiHE54TgRbwSSoBDH3mZx8kc2jX52JObdonAWeAJciMLUw1DsIL+aU7L0TL4v7VXkuYzrLWUfyA==}
 
   '@prisma/adapter-neon@6.10.1':
     resolution: {integrity: sha512-fW70QWh7m20E+iv2t6V3HRzj+wVj26nbER7kBvwbIsmS7S4jJ4Igg04AgSHPxip5AEAe4FeLhZ1P4KS0iN0JZA==}
@@ -2503,7 +2503,7 @@ snapshots:
       '@types/node': 22.15.32
       '@types/pg': 8.15.4
 
-  '@practiso/sdk@1.0.0':
+  '@practiso/sdk@1.1.0':
     dependencies:
       domhandler: 5.0.3
       htmlparser2: 10.0.0
