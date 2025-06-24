@@ -4,7 +4,7 @@
 	"private": true,
 	"scripts": {
 		"build": "wrangler types && prisma generate",
-		"deploy": "prisma migrate deploy && wrangler deploy",
+		"deploy": "prisma migrate deploy && prisma generate && wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
 		"test": "vitest",
