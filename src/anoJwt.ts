@@ -7,7 +7,14 @@ export function jwtAuth(secret: string) {
 		const authentication = c.req.header()['authorization'];
 		const bearer = 'Bearer';
 		if (!authentication || !authentication.startsWith(bearer)) {
-			await next();
+			try {
+				await next()
+			} catch (e) {
+				if (e instanceof Error) {
+					console.error(e.stack)
+				}
+				throw e
+			}
 			return;
 		}
 
