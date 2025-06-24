@@ -14,8 +14,11 @@ interface Env {
 	PSARCHIVE_BUCKET: R2Bucket;
 	DATABASE_URL: string;
 	JWT_SECRET: string;
-	S3_API_URL: string;
-	S3_BUCKET_NAME: string;
+	S3_API_URL?: string;
+	S3_BUCKET_NAME?: string;
+	S3_ACCESS_KEY_ID?: string;
+	S3_ACCESS_KEY?: string;
+	S3_PUBLIC_URL?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -143,7 +146,20 @@ app.get('/whoami', async (c) => {
 app.get('/download/:id', async (c) => {
 	const id = c.req.param('id');
 	if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME) {
-		const client = new S3Client({ endpoint: c.env.S3_API_URL });
+		const client = new S3Client({
+			endpoint: c.env.S3_API_URL,
+			region: 'auto',
+			credentials: { accessKeyId: c.env.S3_ACCESS_KEY_ID!, secretAccessKey: c.env.S3_ACCESS_KEY! },
+			endpointProvider(params) {
+				return {
+					url: new URL(`${c.env.S3_PUBLIC_URL}/${params.Bucket}`),
+					headers: {
+						'Content-Type': ['application/gzip'],
+						'Content-Disposition': [`attachment; filename="${id}.psarchive"`],
+					}
+				}
+			},
+		});
 		const url = await getSignedUrl(client, new GetObjectCommand({ Key: id, Bucket: c.env.S3_BUCKET_NAME }));
 		if (!url) {
 			throw new HTTPException(404);
