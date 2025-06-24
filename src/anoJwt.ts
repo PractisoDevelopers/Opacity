@@ -26,6 +26,13 @@ export function jwtAuth(secret: string) {
 				throw e;
 			}
 		}
-		await next()
+		try {
+			await next()
+		} catch (e) {
+			if (e instanceof Error) {
+				console.error(e.stack)
+			}
+			throw e
+		}
 	});
 }
