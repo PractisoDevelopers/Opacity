@@ -60,7 +60,7 @@ app.put('/upload', async (c) => {
 		}
 		throw e;
 	} finally {
-		await checking.cancel()
+		await checking.cancel();
 	}
 
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
