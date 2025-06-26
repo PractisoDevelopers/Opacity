@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
+import { pageSize } from '../magic';
 
 type SortOrder = 'asc' | 'desc';
 
@@ -10,7 +11,7 @@ export function useArchives(app: Hono<OpacityEnv>) {
 		const query = c.req.query();
 		let sortBy = query['by'],
 			sortOrder = query['order'] as SortOrder,
-			predecessor = query['predecessor'],
+			page = parseInt(query['page'] ?? 0),
 			orderBy;
 
 		if (sortOrder) {
@@ -50,18 +51,12 @@ export function useArchives(app: Hono<OpacityEnv>) {
 			uploadTime: true,
 			owner: { select: { name: true } },
 		};
-		if (predecessor) {
-			const find = await prisma.archive.findUnique({ where: { id: predecessor }, select: {} });
-			if (!find) {
-				throw new HTTPException(400, { message: 'Unknown predecessor.' });
-			}
-		}
 		const pagination = (
 			await prisma.archive.findMany({
 				select,
 				orderBy,
-				where: predecessor ? { id: { gt: predecessor } } : undefined,
-				take: 20,
+				skip: page * pageSize,
+				take: pageSize,
 			})
 		).map((archive) => ({
 			id: archive.id,
