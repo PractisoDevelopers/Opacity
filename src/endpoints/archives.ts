@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { pageSize } from '../magic';
+import { Prisma } from '@prisma/client';
 
 type SortOrder = 'asc' | 'desc';
 
@@ -11,8 +12,8 @@ export function useArchives(app: Hono<OpacityEnv>) {
 		const query = c.req.query();
 		let sortBy = query['by'],
 			sortOrder = query['order'] as SortOrder,
-			page = parseInt(query['page'] ?? 0),
-			orderBy;
+			predecessor = query['predecessor'],
+			orderBy: Prisma.ArchiveOrderByWithRelationInput;
 
 		if (sortOrder) {
 			const expected = ['asc', 'desc'];
@@ -28,7 +29,7 @@ export function useArchives(app: Hono<OpacityEnv>) {
 				orderBy = { likes: { _count: sortOrder } };
 				break;
 			default:
-				sortBy = sortBy ?? 'updateTime';
+				sortBy = sortBy ?? 'update';
 				const mapping: { [key: string]: string } = {
 					name: 'name',
 					upload: 'uploadTime',
@@ -51,20 +52,21 @@ export function useArchives(app: Hono<OpacityEnv>) {
 			uploadTime: true,
 			owner: { select: { name: true } },
 		};
-		const pagination = (
-			await prisma.archive.findMany({
-				select,
-				orderBy,
-				skip: page * pageSize,
-				take: pageSize,
-			})
-		).map((archive) => ({
-			id: archive.id,
-			name: archive.name,
-			uploadTime: archive.uploadTime.toISOString(),
-			updateTime: archive.updateTime.toISOString(),
-			ownerName: archive.owner.name,
-		}));
-		return c.json(pagination);
+		const pagination = await prisma.archive.findMany({
+			select,
+			orderBy,
+			cursor: predecessor ? { id: predecessor } : undefined,
+			take: pageSize + 1,
+		});
+		return c.json({
+			page: pagination.slice(0, pageSize).map((archive) => ({
+				id: archive.id,
+				name: archive.name,
+				uploadTime: archive.uploadTime.toISOString(),
+				updateTime: archive.updateTime.toISOString(),
+				ownerName: archive.owner.name,
+			})),
+			next: pagination.length > pageSize ? pagination[pagination.length - 1].id : undefined,
+		});
 	});
 }

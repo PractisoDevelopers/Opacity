@@ -13,7 +13,9 @@ archiveForm.append('content', new File([archiveBuffer], 'ultimate question.psarc
 describe('local Opacity worker', () => {
 	it('should respond with archive list', async () => {
 		const response = await SELF.fetch(`${endpoint}/archives`);
-		expect(await response.json()).toMatchInlineSnapshot(expect.any(Array));
+		expect(await response.json()).toEqual({
+			page: expect.any(Array),
+		});
 	});
 
 	it('should upload ultimate question', async () => {
