@@ -252,5 +252,35 @@ app.get('/archive/:id', async (c) => {
 	});
 });
 
+app.delete('/archive/:id', async (c) => {
+	const id = c.req.param('id');
+	const jwtPayload = c.get('jwtPayload');
+	if (!jwtPayload) {
+		throw new HTTPException(401);
+	}
+	const { cid } = jwtPayload;
+	if (!cid) {
+		throw new HTTPException(403);
+	}
+	const prisma = usePrismaClient(c.env.DATABASE_URL);
+	const archive = await prisma.archive.findUnique({
+		where: { id },
+		include: {
+			owner: {
+				include: { clients: { where: { id: cid } } },
+			},
+		},
+	});
+	if (!archive) {
+		throw new HTTPException(404, { message: 'Archive not found.' });
+	}
+	if (!archive.owner.clients) {
+		throw new HTTPException(403, { message: 'Not owning this archive.' });
+	}
+	await prisma.$transaction(async () => {
+		await Promise.all([prisma.archive.delete({ where: { id } }), c.env.PSARCHIVE_BUCKET.delete(id)]);
+	});
+	return new Response(null, { status: 204 });
+});
 
 export default app satisfies ExportedHandler<Env>;
