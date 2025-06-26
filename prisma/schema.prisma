@@ -13,22 +13,25 @@ datasource db {
 }
 
 model Archive {
-  id         String   @id
+  id         String               @id
   name       String?
-  uploadTime DateTime @default(now())
+  uploadTime DateTime             @default(now())
   updateTime DateTime
   ownerId    Int
-  owner      Owner    @relation(fields: [ownerId], references: [id])
+  owner      Owner                @relation(fields: [ownerId], references: [id])
+  dimensions DimensionOnArchive[]
+  likes      OwnerLikesArchive[]
 
   @@index([updateTime], type: Brin)
   @@index([uploadTime], type: Brin)
 }
 
 model Owner {
-  id       Int       @id @default(autoincrement())
-  name     String?
-  archives Archive[]
-  clients  Client[]
+  id            Int                 @id @default(autoincrement())
+  name          String?
+  archives      Archive[]
+  clients       Client[]
+  likedArchives OwnerLikesArchive[]
 }
 
 model Client {
@@ -36,4 +39,29 @@ model Client {
   owner   Owner  @relation(fields: [ownerId], references: [id])
   name    String @db.VarChar(20)
   ownerId Int
+}
+
+model Dimension {
+  id       Int                  @id @default(autoincrement())
+  name     String               @unique
+  archives DimensionOnArchive[]
+}
+
+model DimensionOnArchive {
+  dimensionId Int
+  dimension   Dimension @relation(fields: [dimensionId], references: [id])
+  archiveId   String
+  archive     Archive   @relation(fields: [archiveId], references: [id])
+  quizCount   Int
+
+  @@id([archiveId, dimensionId])
+}
+
+model OwnerLikesArchive {
+  ownerId   Int
+  owner     Owner   @relation(fields: [ownerId], references: [id])
+  archiveId String
+  archive   Archive @relation(fields: [archiveId], references: [id])
+
+  @@id([archiveId, ownerId])
 }
