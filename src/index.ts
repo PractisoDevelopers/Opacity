@@ -96,7 +96,7 @@ app.get('/archives', async (c) => {
 	return c.json(pagination);
 });
 
-app.put('/upload', async (c) => {
+app.put('/archive', async (c) => {
 	const archiveId = nanoid();
 	let body;
 	try {
@@ -126,8 +126,6 @@ app.put('/upload', async (c) => {
 			throw new HTTPException(400, { message: `Invalid content: ${e.message}.` });
 		}
 		throw e;
-	} finally {
-		await checking.cancel();
 	}
 
 	function getUpdateTime(archive: PractisoArchive) {
@@ -216,7 +214,7 @@ app.get('/whoami', async (c) => {
 	return c.json({ clientName: client.name, name: client.owner.name });
 });
 
-app.get('/download/:id', async (c) => {
+app.get('/archive/:id', async (c) => {
 	const id = c.req.param('id');
 	if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME && c.env.S3_PUBLIC_URL && c.env.S3_ACCESS_KEY_ID && c.env.S3_ACCESS_KEY) {
 		const client = new S3Client({
@@ -253,5 +251,6 @@ app.get('/download/:id', async (c) => {
 		},
 	});
 });
+
 
 export default app satisfies ExportedHandler<Env>;
