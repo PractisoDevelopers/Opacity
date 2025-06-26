@@ -2,38 +2,45 @@ import { Hono } from 'hono';
 import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 
+type SortOrder = 'asc' | 'desc';
+
 export function useArchives(app: Hono<OpacityEnv>) {
 	app.get('/archives', async (c) => {
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
 		const query = c.req.query();
 		let sortBy = query['by'],
-			sortOrder = query['order'],
-			predecessor = query['predecessor'];
-
-		if (sortBy) {
-			const mapping: { [key: string]: string } = {
-				name: 'name',
-				upload: 'uploadTime',
-				update: 'updateTime',
-			};
-			if (sortBy in mapping) {
-				sortBy = mapping[sortBy];
-			} else {
-				throw new HTTPException(400, {
-					message: `Bad sort keyword: ${sortBy}. One of ${Object.keys(mapping).join(', ')} was expected.`,
-				});
-			}
-		} else {
-			sortBy = 'name';
-		}
+			sortOrder = query['order'] as SortOrder,
+			predecessor = query['predecessor'],
+			orderBy;
 
 		if (sortOrder) {
-			const expected = ['asc', 'dsc'];
+			const expected = ['asc', 'desc'];
 			if (!expected.includes(sortOrder)) {
 				throw new HTTPException(400, { message: `Bad sort order: ${sortOrder}. One of ${expected.join(', ')} was expected.` });
 			}
 		} else {
 			sortOrder = 'asc';
+		}
+
+		switch (sortBy) {
+			case 'likes':
+				orderBy = { likes: { _count: sortOrder } };
+				break;
+			default:
+				sortBy = sortBy ?? 'updateTime';
+				const mapping: { [key: string]: string } = {
+					name: 'name',
+					upload: 'uploadTime',
+					update: 'updateTime',
+				};
+				if (sortBy in mapping) {
+					sortBy = mapping[sortBy];
+				} else {
+					throw new HTTPException(400, {
+						message: `Bad sort keyword: ${sortBy}. One of ${Object.keys(mapping).join(', ')} was expected.`,
+					});
+				}
+				orderBy = { [sortBy]: sortOrder };
 		}
 
 		const select = {
@@ -43,8 +50,6 @@ export function useArchives(app: Hono<OpacityEnv>) {
 			uploadTime: true,
 			owner: { select: { name: true } },
 		};
-		switch (sortBy) {
-		}
 		if (predecessor) {
 			const find = await prisma.archive.findUnique({ where: { id: predecessor }, select: {} });
 			if (!find) {
@@ -54,9 +59,7 @@ export function useArchives(app: Hono<OpacityEnv>) {
 		const pagination = (
 			await prisma.archive.findMany({
 				select,
-				orderBy: {
-					[sortBy]: sortOrder,
-				},
+				orderBy,
 				where: predecessor ? { id: { gt: predecessor } } : undefined,
 				take: 20,
 			})
