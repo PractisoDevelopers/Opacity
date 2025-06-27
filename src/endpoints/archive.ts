@@ -132,7 +132,14 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		const id = c.req.param('id');
 		const archive = await prisma.archive.findUnique({
 			where: { id },
-			include: { owner: { select: { name: true } } },
+			select: {
+				id: true,
+				name: true,
+				updateTime: true,
+				uploadTime: true,
+				owner: { select: { name: true } },
+				dimensions: { select: { quizCount: true, dimension: { select: { name: true } } } },
+			},
 		});
 		if (!archive) {
 			throw new HTTPException(404);

@@ -45,15 +45,15 @@ export function useArchives(app: Hono<OpacityEnv>) {
 				orderBy = { [sortBy]: sortOrder };
 		}
 
-		const select = {
-			id: true,
-			name: true,
-			updateTime: true,
-			uploadTime: true,
-			owner: { select: { name: true } },
-		};
 		const pagination = await prisma.archive.findMany({
-			select,
+			select: {
+				id: true,
+				name: true,
+				updateTime: true,
+				uploadTime: true,
+				owner: { select: { name: true } },
+				dimensions: { select: { quizCount: true, dimension: { select: { name: true } } } },
+			},
 			orderBy,
 			cursor: predecessor ? { id: predecessor } : undefined,
 			take: pageSize + 1,
@@ -66,13 +66,19 @@ export function useArchives(app: Hono<OpacityEnv>) {
 }
 
 export function mapToMetadata(dbModel: {
-	id: string
-	name: string | null
-	uploadTime: Date
-	updateTime: Date
+	id: string;
+	name: string | null;
+	uploadTime: Date;
+	updateTime: Date;
 	owner: {
-		name: string | null
-	}
+		name: string | null;
+	};
+	dimensions: {
+		dimension: {
+			name: string;
+		};
+		quizCount: number;
+	}[];
 }) {
 	return {
 		id: dbModel.id,
@@ -80,5 +86,6 @@ export function mapToMetadata(dbModel: {
 		uploadTime: dbModel.uploadTime.toISOString(),
 		updateTime: dbModel.updateTime.toISOString(),
 		ownerName: dbModel.owner.name,
-	}
+		dimensions: dbModel.dimensions.map(({ dimension, quizCount }) => ({ name: dimension.name, quizCount })),
+	};
 }
