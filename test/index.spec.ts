@@ -1,14 +1,9 @@
 import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
+import { Archive, Composer } from '@practiso/sdk';
+import { PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
 
 const endpoint = 'https://exmaple.com';
-const archiveBuffer = Buffer.from(
-	'H4sIAAAAAAAAAKWTvU7DMBCAmfsUJy9dIE7SlkKVpDMLUxESm5VciEVip/alajvxGrweT4IdQC0UlT/Lg3V3+r7zXzJfNzWs0FipVTqMgmgI82yQCJNXcoXgssqmrCJqZ5zbvMJGBNuqK7u8wFWQ64a3RuQkrWaQGxTkOSwO48lZ6OZ0EU5mk2g2GgXj8OJ8PL1j2QDcSJad3IISDabspibZCEJYdmg9AH7Cii/fWT2vNI5ld4E+SLim7LYS9Pz4ZIEqhAaFkuoedAm1LPG0D3ZK+iNAEKoAdMsNVb4Ia4vzhPeUj2Dd+uY+6fqMJGygNVIbSZuUheywZtfate5FXyn6Iu5p30uio5KFBly3aCSq/HWLpMFga3TRucB/5fFR+RVBgS2qwv7N84BOQaZDtqccHVWO49+oEn5wlwnff0wJ90/V/Qn+9imykxclwyq5NgMAAA==',
-	'base64',
-);
-const archiveForm = new FormData();
-archiveForm.append('client-name', 'test client');
-archiveForm.append('content', new File([archiveBuffer], 'ultimate question.psarchive'));
 
 describe('local Opacity worker', () => {
 	it('should respond with archive list', async () => {
@@ -18,28 +13,17 @@ describe('local Opacity worker', () => {
 		});
 	});
 
+	it('should sort and paginate', () => {});
+
 	it('should upload ultimate question', async () => {
-		const uploadGuest = (await (
-			await SELF.fetch(`${endpoint}/archive`, {
-				method: 'PUT',
-				body: archiveForm,
-			})
-		).json()) as { jwt: string; archiveId: string };
+		const archive = getUltimateArchive();
+		const uploadGuest = await uploadArchive(archive);
 		expect(uploadGuest, 'failed to upload anonymously').toEqual({
 			archiveId: expect.any(String),
 			jwt: expect.stringMatching(new RegExp(`(.*\.){3}`)),
 		});
 
-		const authHeaders = {
-			authorization: `Bearer ${uploadGuest.jwt}`,
-		};
-		const uploadAuthenticated = (await (
-			await SELF.fetch(`${endpoint}/archive`, {
-				method: 'PUT',
-				headers: authHeaders,
-				body: archiveForm,
-			})
-		).json()) as { archiveId: string };
+		const uploadAuthenticated = await uploadArchive(archive, uploadGuest.jwt);
 		expect(uploadAuthenticated, 'failed to upload with authentication').toEqual({
 			archiveId: expect.any(String),
 		});
@@ -47,7 +31,9 @@ describe('local Opacity worker', () => {
 		const deleteRequest = await Promise.all(
 			[uploadGuest.archiveId, uploadAuthenticated.archiveId].map((id) =>
 				SELF.fetch(`${endpoint}/archive/${id}`, {
-					headers: authHeaders,
+					headers: {
+						authorization: `Bearer ${uploadGuest.jwt}`,
+					},
 					method: 'DELETE',
 				}),
 			),
@@ -58,21 +44,19 @@ describe('local Opacity worker', () => {
 	});
 
 	it('should like and dislike', async () => {
-		const { jwt, archiveId } = (await (
-			await SELF.fetch(`${endpoint}/archive`, {
-				method: 'PUT',
-				body: archiveForm,
-			})
-		).json()) as { jwt: string; archiveId: string };
+		const archive = getUltimateArchive();
+		const { jwt, archiveId } = await uploadArchive(archive);
 		const authHeaders = { authorization: `Bearer ${jwt}` };
 		const likeResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}/like`, {
 			method: 'PUT',
-			headers: authHeaders
+			headers: authHeaders,
 		});
 		expect(likeResponse.status, 'failed to like').toBe(201);
 
 		async function getArchiveLikes() {
-			const { count } = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/like`)).json()) as { count: number };
+			const { count } = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/like`)).json()) as {
+				count: number;
+			};
 			return count;
 		}
 
@@ -88,7 +72,36 @@ describe('local Opacity worker', () => {
 		const deleteResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
 			headers: authHeaders,
 			method: 'DELETE',
-		})
-		expect(deleteResponse.status, 'failed to delete archive').toBe(202)
+		});
+		expect(deleteResponse.status, 'failed to delete archive').toBe(202);
 	});
 });
+
+async function uploadArchive(archive: PractisoArchive, jwt?: string, name?: string) {
+	const form = new FormData();
+	const composer = new Composer(archive);
+	const pieces = [];
+	for await (const chunk of composer.source.pipeThrough(new CompressionStream('gzip'))) {
+		pieces.push(chunk);
+	}
+	form.append('client-name', 'test client');
+	form.append('content', new File([Buffer.concat(pieces)], (name ?? 'test') + '.psarchive'));
+	return (await (
+		await SELF.fetch(`${endpoint}/archive`, {
+			method: 'PUT',
+			body: form,
+			headers: jwt ? { authorization: `Bearer ${jwt}` } : undefined,
+		})
+	).json()) as { jwt?: string; archiveId: string };
+}
+
+function getUltimateArchive() {
+	return new PractisoArchive([
+		new QuizArchive('Ultimate Question', {
+			frames: [
+				new Archive.Text("What's the meaning of life, the universe and everything else?"),
+				new Archive.Options(null, [new Archive.Option(new Archive.Text('42'), { isKey: true })]),
+			],
+		}),
+	]);
+}
