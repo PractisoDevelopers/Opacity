@@ -59,14 +59,26 @@ export function useArchives(app: Hono<OpacityEnv>) {
 			take: pageSize + 1,
 		});
 		return c.json({
-			page: pagination.slice(0, pageSize).map((archive) => ({
-				id: archive.id,
-				name: archive.name,
-				uploadTime: archive.uploadTime.toISOString(),
-				updateTime: archive.updateTime.toISOString(),
-				ownerName: archive.owner.name,
-			})),
+			page: pagination.slice(0, pageSize).map(mapToMetadata),
 			next: pagination.length > pageSize ? pagination[pagination.length - 1].id : undefined,
 		});
 	});
+}
+
+export function mapToMetadata(dbModel: {
+	id: string
+	name: string | null
+	uploadTime: Date
+	updateTime: Date
+	owner: {
+		name: string | null
+	}
+}) {
+	return {
+		id: dbModel.id,
+		name: dbModel.name,
+		uploadTime: dbModel.uploadTime.toISOString(),
+		updateTime: dbModel.updateTime.toISOString(),
+		ownerName: dbModel.owner.name,
+	}
 }

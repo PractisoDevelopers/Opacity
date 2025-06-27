@@ -1,5 +1,5 @@
 import usePrismaClient from '../usePrismaClient';
-import { jwtMandated } from '../anoJwt';
+import { jwtMandated } from '../middleware/anoJwt';
 import { HTTPException } from 'hono/http-exception';
 import { Prisma } from '@prisma/client';
 import { Hono } from 'hono';

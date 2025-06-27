@@ -9,8 +9,9 @@ const endpoint = 'https://exmaple.com';
 describe('local Opacity worker', () => {
 	it('should respond with archive list', async () => {
 		const response = await SELF.fetch(`${endpoint}/archives`);
-		expect(await response.json()).toEqual({
+		expect(await response.json()).toMatchObject({
 			page: expect.any(Array),
+			next: expect.toBeOneOf([expect.any(String), undefined])
 		});
 	});
 
@@ -43,7 +44,7 @@ describe('local Opacity worker', () => {
 		expect(page1.next).toBeDefined();
 
 		const page2 = (await (await SELF.fetch(`${endpoint}/archives?predecessor=${page1.next}`)).json()) as pr;
-		expect(page1.page).not.toEqual(page2.page)
+		expect(page1.page).not.toEqual(page2.page);
 	});
 
 	it('should upload ultimate question', async () => {
@@ -105,6 +106,22 @@ describe('local Opacity worker', () => {
 			method: 'DELETE',
 		});
 		expect(deleteResponse.status, 'failed to delete archive').toBe(202);
+	});
+
+	it('should support patching', async () => {
+		const { jwt, archiveId } = await uploadArchive(getUltimateArchive(), undefined, 'SIXTEEN!!!');
+		const form = new FormData();
+		const newName = "what'd dog doing";
+		form.append('name', newName);
+		const response = await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+			method: 'PATCH',
+			headers: { authorization: `Bearer ${jwt}` },
+			body: form,
+		});
+		expect(response.status).toBe(204);
+
+		const metadata = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/metadata`)).json()) as any;
+		expect(metadata.name).toEqual(newName);
 	});
 });
 

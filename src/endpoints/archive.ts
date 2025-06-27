@@ -1,15 +1,17 @@
-import { jwtMandated } from '../anoJwt';
+import { jwtMandated } from '../middleware/anoJwt';
 import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
 import { PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
 import { ArchiveParseError, Parser } from '@practiso/sdk';
-import { clientIdSize } from '../magic';
+import { clientIdSize, maxNameLength } from '../magic';
 import * as jwt from 'hono/jwt';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { mapToMetadata } from './archives';
+import { defaultCache, etagCache, timedCache } from '../middleware/cache';
 
 export function useArchive(app: Hono<OpacityEnv>) {
 	app.put('/archive', async (c) => {
@@ -24,12 +26,13 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			throw e;
 		}
 		const content = body['content'];
-		const name = body['name'] ?? null;
+		const nameInsure = body['name'] ?? null;
 		const clientIdInsecure: string | undefined = c.get('jwtPayload')?.cid;
 
-		if (!(content instanceof File) || (name && typeof name !== 'string')) {
+		if (!(content instanceof File) || (nameInsure && typeof nameInsure !== 'string')) {
 			throw new HTTPException(400, { message: 'Invalid form structure.' });
 		}
+		const name = validifyName(nameInsure ?? content.name);
 
 		const [checking, putting] = content.stream().tee();
 		let archive: PractisoArchive;
@@ -71,7 +74,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		try {
 			await Promise.all([
 				c.env.PSARCHIVE_BUCKET.put(archiveId, putting),
-				createArchiveRecord(prisma, archiveId, archive, content.name, ownerData),
+				createArchiveRecord(prisma, archiveId, archive, name, ownerData),
 			]);
 		} catch (e) {
 			if (e instanceof Prisma.PrismaClientKnownRequestError) {
@@ -86,7 +89,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		return c.json(returnJson, 201);
 	});
 
-	app.get('/archive/:id', async (c) => {
+	app.get('/archive/:id', defaultCache, skipArchiveFileMiddleware, async (c) => {
 		const id = c.req.param('id');
 		if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME && c.env.S3_PUBLIC_URL && c.env.S3_ACCESS_KEY_ID && c.env.S3_ACCESS_KEY) {
 			const client = new S3Client({
@@ -107,7 +110,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			if (!url) {
 				throw new HTTPException(404);
 			}
-			return c.redirect(url);
+			return c.redirect(url, 301);
 		}
 
 		const storage = await c.env.PSARCHIVE_BUCKET.get(id);
@@ -124,8 +127,22 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		});
 	});
 
-	app.delete('/archive/:id', jwtMandated);
-	app.delete('/archive/:id', async (c) => {
+	app.get('/archive/:id/metadata', skipArchiveMetadataMiddleware, async (c) => {
+		const prisma = usePrismaClient(c.env.DATABASE_URL);
+		const id = c.req.param('id');
+		const archive = await prisma.archive.findUnique({
+			where: { id },
+			include: { owner: { select: { name: true } } },
+		});
+		if (!archive) {
+			throw new HTTPException(404);
+		}
+		return c.json(mapToMetadata(archive), {
+			headers: { 'Last-Modified': archive.updateTime.getTime().toString() },
+		});
+	});
+
+	app.delete('/archive/:id', jwtMandated, async (c) => {
 		const id = c.req.param('id');
 		const cid = c.get('clientId');
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
@@ -147,6 +164,44 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			await Promise.all([prisma.archive.delete({ where: { id } }), c.env.PSARCHIVE_BUCKET.delete(id)]);
 		});
 		return new Response(null, { status: 202 });
+	});
+
+	app.patch('/archive/:id', jwtMandated, async (c) => {
+		const id = c.req.param('id');
+		const clientId = c.get('clientId');
+		const prisma = usePrismaClient(c.env.DATABASE_URL);
+		if (
+			!(await prisma.archive.findUnique({
+				where: { id, owner: { clients: { some: { id: clientId } } } },
+				select: { id: true },
+			}))
+		) {
+			throw new HTTPException(403, { message: 'Not owning this archive.' });
+		}
+		const r2Obj = await c.env.PSARCHIVE_BUCKET.head(id);
+		if (!r2Obj) {
+			throw new HTTPException(404);
+		}
+		const updatedHeaders = {
+			etag: r2Obj.etag,
+			...r2Obj.httpMetadata,
+			...(r2Obj.httpMetadata?.cacheExpiry ? { cacheExpiry: r2Obj.httpMetadata?.cacheExpiry?.getTime()?.toString() } : {}),
+		} as any;
+		const body = await c.req.parseBody();
+		const data = {
+			name: body.name ? validifyName(body.name) : undefined,
+		};
+		if (!Object.entries(data).some((v) => v)) {
+			return new Response(null, { status: 304, headers: updatedHeaders });
+		}
+		await prisma.archive.update({
+			where: { id },
+			data: {
+				...data,
+				updateTime: new Date(),
+			},
+		});
+		return new Response(null, { status: 204, headers: updatedHeaders });
 	});
 }
 
@@ -189,3 +244,33 @@ async function createArchiveRecord(prisma: PrismaClient, archiveId: string, arch
 		});
 	});
 }
+
+function validifyName(name: any) {
+	if (!name || typeof name !== 'string') {
+		throw new HTTPException(400, { message: 'Missing name property.' });
+	}
+	const processed = name.replaceAll(/\s{2,}/g, ' ');
+	if (processed.length > maxNameLength) {
+		throw new HTTPException(400, { message: 'Invalid name property.' });
+	}
+	return processed;
+}
+
+const skipArchiveFileMiddleware = etagCache<{ Bindings: Bindings }>(async (c) => {
+	const id = c.req.param('id');
+	const archive = await c.env.PSARCHIVE_BUCKET.head(id);
+	if (!archive) {
+		throw new HTTPException(404);
+	}
+	return archive.httpEtag;
+});
+
+const skipArchiveMetadataMiddleware = timedCache<{ Bindings: Bindings }>(async (c) => {
+	const prisma = usePrismaClient(c.env.DATABASE_URL);
+	const id = c.req.param('id');
+	const archive = await prisma.archive.findUnique({ where: { id }, select: { updateTime: true } });
+	if (!archive) {
+		throw new HTTPException(404);
+	}
+	return archive.updateTime;
+});

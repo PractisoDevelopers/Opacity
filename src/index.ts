@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { jwtAuth } from './anoJwt';
+import { jwtAuth } from './middleware/anoJwt';
 import { useArchiveLike } from './endpoints/archive-like';
 import { useWhoami } from './endpoints/whoami';
 import { useArchives } from './endpoints/archives';
