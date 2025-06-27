@@ -7,6 +7,6 @@ export default defineWorkersConfig({
 				wrangler: { configPath: './wrangler.jsonc' },
 			},
 		},
-		testTimeout: 30_000
+		testTimeout: 60_000
 	},
 });

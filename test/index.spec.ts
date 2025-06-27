@@ -2,6 +2,7 @@ import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { Archive, Composer } from '@practiso/sdk';
 import { PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
+import { pageSize } from '../src/magic';
 
 const endpoint = 'https://exmaple.com';
 
@@ -13,7 +14,37 @@ describe('local Opacity worker', () => {
 		});
 	});
 
-	it('should sort and paginate', () => {});
+	it('should paginate', async () => {
+		const guestUpload = await uploadArchive(getUltimateArchive(), undefined, 'Ultima 1');
+		expect(guestUpload.jwt).toMatch(new RegExp('(\..*){3}'));
+
+		type pr = { page: Array<any>; next?: string };
+
+		const followingUploads: string[] = [];
+
+		async function populateOnePage() {
+			for (let i = 0; i < 5; i++) {
+				const ids = await Promise.all(
+					Array.from(Array(4).keys()).map((i) =>
+						uploadArchive(getUltimateArchive(), guestUpload.jwt, `Ultima ${i + 2}`).then(({ archiveId }) => archiveId),
+					),
+				);
+				followingUploads.push(...ids);
+			}
+		}
+
+		let page1 = (await (await SELF.fetch(`${endpoint}/archives`)).json()) as pr;
+		if (page1.page.length < pageSize) {
+			await populateOnePage();
+		}
+
+		page1 = (await (await SELF.fetch(`${endpoint}/archives`)).json()) as pr;
+		expect(page1.page.length, 'page size mismatch').toEqual(pageSize);
+		expect(page1.next).toBeDefined();
+
+		const page2 = (await (await SELF.fetch(`${endpoint}/archives?predecessor=${page1.next}`)).json()) as pr;
+		expect(page1.page).not.toEqual(page2.page)
+	});
 
 	it('should upload ultimate question', async () => {
 		const archive = getUltimateArchive();
@@ -104,4 +135,10 @@ function getUltimateArchive() {
 			],
 		}),
 	]);
+}
+
+function* chunked<T>(arr: Array<T>, n: number) {
+	for (let i = 0; i < arr.length; i += n) {
+		yield arr.slice(i, i + n);
+	}
 }
