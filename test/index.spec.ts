@@ -134,7 +134,10 @@ describe('local Opacity worker', () => {
 		);
 		const response = await (await SELF.fetch(`${endpoint}/dimensions`)).json<string[]>();
 		try {
-			expect(response).toContain('Good questions');
+			expect(response).toContainEqual({
+				name: 'Good questions',
+				quizCount: expect.toSatisfy((count) => count > 1),
+			});
 		} finally {
 			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
 				method: 'DELETE',
