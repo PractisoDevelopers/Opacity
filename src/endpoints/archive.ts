@@ -78,6 +78,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			]);
 		} catch (e) {
 			if (e instanceof Prisma.PrismaClientKnownRequestError) {
+				console.warn(e);
 				if (e.code === 'P2000') {
 					throw new HTTPException(400, { message: 'Fields too long.' });
 				} else if (e.code === 'P2002') {
@@ -230,25 +231,27 @@ function getUpdateTime(archive: PractisoArchive) {
 }
 
 async function createArchiveRecord(prisma: PrismaClient, archiveId: string, archive: PractisoArchive, name: string, ownerData: any) {
-	const dimensionQuizCount = getDimensionQuizCount(archive.content);
-	await prisma.$transaction(async () => {
-		const dimensionIds = await prisma.dimension.createManyAndReturn({
-			select: { id: true },
-			data: Object.keys(dimensionQuizCount).map((dName) => ({ name: dName })),
-		});
-		const data = Object.values(dimensionQuizCount).map((qCount, index) => ({
-			dimensionId: dimensionIds[index].id,
-			quizCount: qCount,
-		}));
-		await prisma.archive.create({
-			data: {
-				id: archiveId,
-				name,
-				updateTime: getUpdateTime(archive),
-				owner: ownerData,
-				dimensions: { createMany: { data } },
-			},
-		});
+	const quizCountByDim = getDimensionQuizCount(archive.content);
+	await prisma.dimension.createMany({
+		data: Object.keys(quizCountByDim).map((dName) => ({ name: dName })),
+		skipDuplicates: true,
+	});
+	const dimensions = await prisma.dimension.findMany({
+		where: { name: { in: Object.keys(quizCountByDim) } },
+		select: { id: true },
+	});
+	const data = Object.values(quizCountByDim).map((qCount, index) => ({
+		dimensionId: dimensions[index].id,
+		quizCount: qCount,
+	}));
+	await prisma.archive.create({
+		data: {
+			id: archiveId,
+			name,
+			updateTime: getUpdateTime(archive),
+			owner: ownerData,
+			dimensions: { createMany: { data } },
+		},
 	});
 }
 

@@ -1,7 +1,7 @@
 import { SELF } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { Archive, Composer } from '@practiso/sdk';
-import { PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
+import { DimensionArchive, PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
 import { pageSize } from '../src/magic';
 
 const endpoint = 'https://exmaple.com';
@@ -11,7 +11,7 @@ describe('local Opacity worker', () => {
 		const response = await SELF.fetch(`${endpoint}/archives`);
 		expect(await response.json()).toMatchObject({
 			page: expect.any(Array),
-			next: expect.toBeOneOf([expect.any(String), undefined])
+			next: expect.toBeOneOf([expect.any(String), undefined]),
 		});
 	});
 
@@ -123,6 +123,25 @@ describe('local Opacity worker', () => {
 		const metadata = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/metadata`)).json()) as any;
 		expect(metadata.name).toEqual(newName);
 	});
+
+	it('should query dimensions', async () => {
+		const { jwt, archiveId } = await uploadArchive(
+			new PractisoArchive([
+				new QuizArchive('Good question 69', {
+					dimensions: [new DimensionArchive('Good questions')],
+				}),
+			]),
+		);
+		const response = await (await SELF.fetch(`${endpoint}/dimensions`)).json<string[]>();
+		try {
+			expect(response).toContain('Good questions');
+		} finally {
+			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+				method: 'DELETE',
+				headers: { authorization: `Bearer ${jwt}` },
+			});
+		}
+	});
 });
 
 async function uploadArchive(archive: PractisoArchive, jwt?: string, name?: string) {
@@ -134,13 +153,16 @@ async function uploadArchive(archive: PractisoArchive, jwt?: string, name?: stri
 	}
 	form.append('client-name', 'test client');
 	form.append('content', new File([Buffer.concat(pieces)], (name ?? 'test') + '.psarchive'));
-	return (await (
-		await SELF.fetch(`${endpoint}/archive`, {
-			method: 'PUT',
-			body: form,
-			headers: jwt ? { authorization: `Bearer ${jwt}` } : undefined,
-		})
-	).json()) as { jwt?: string; archiveId: string };
+	const response = await SELF.fetch(`${endpoint}/archive`, {
+		method: 'PUT',
+		body: form,
+		headers: jwt ? { authorization: `Bearer ${jwt}` } : undefined,
+	});
+	if (response.ok) {
+		return (await response.json()) as { jwt?: string; archiveId: string };
+	} else {
+		throw await response.text();
+	}
 }
 
 function getUltimateArchive() {
@@ -152,10 +174,4 @@ function getUltimateArchive() {
 			],
 		}),
 	]);
-}
-
-function* chunked<T>(arr: Array<T>, n: number) {
-	for (let i = 0; i < arr.length; i += n) {
-		yield arr.slice(i, i + n);
-	}
 }
