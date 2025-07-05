@@ -142,6 +142,33 @@ describe('local Opacity worker', () => {
 			});
 		}
 	});
+
+	it('should query archives by dimension', async () => {
+		const { jwt, archiveId } = await uploadArchive(
+			new PractisoArchive([
+				new QuizArchive('Good question 69', {
+					dimensions: [new DimensionArchive('Good questions')],
+				}),
+			]),
+		);
+		const { page, next } = (await (await SELF.fetch(`${endpoint}/dimension/${encodeURI('Good questions')}/archives`)).json()) as any;
+		try {
+			expect(page).toContainEqual(
+				expect.objectContaining({
+					dimensions: expect.arrayContaining([
+						expect.objectContaining({
+							name: 'Good questions',
+						}),
+					]),
+				}),
+			);
+		} finally {
+			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+				method: 'DELETE',
+				headers: { authorization: `Bearer ${jwt}` },
+			});
+		}
+	});
 });
 
 async function uploadArchive(archive: PractisoArchive, jwt?: string, name?: string) {
