@@ -18,7 +18,7 @@ model Archive {
   uploadTime DateTime             @default(now())
   updateTime DateTime
   ownerId    Int
-  owner      Owner                @relation(fields: [ownerId], references: [id])
+  owner      Owner                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   dimensions DimensionOnArchive[]
   likes      OwnerLikesArchive[]
 
@@ -49,9 +49,9 @@ model Dimension {
 
 model DimensionOnArchive {
   dimensionId Int
-  dimension   Dimension @relation(fields: [dimensionId], references: [id])
+  dimension   Dimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
   archiveId   String
-  archive     Archive   @relation(fields: [archiveId], references: [id])
+  archive     Archive   @relation(fields: [archiveId], references: [id], onDelete: Cascade)
   quizCount   Int
 
   @@id([archiveId, dimensionId])
@@ -59,9 +59,9 @@ model DimensionOnArchive {
 
 model OwnerLikesArchive {
   ownerId   Int
-  owner     Owner   @relation(fields: [ownerId], references: [id])
+  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   archiveId String
-  archive   Archive @relation(fields: [archiveId], references: [id])
+  archive   Archive @relation(fields: [archiveId], references: [id], onDelete: Cascade)
 
   @@id([archiveId, ownerId])
 }
