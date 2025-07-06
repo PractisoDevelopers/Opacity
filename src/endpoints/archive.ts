@@ -72,10 +72,15 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		}
 
 		try {
-			await Promise.all([
+			const [, quizCountByDim] = await Promise.all([
 				c.env.PSARCHIVE_BUCKET.put(archiveId, putting),
 				createArchiveRecord(prisma, archiveId, archive, name, ownerData),
 			]);
+			await c.env.DIMOJI_GEN_WORKFLOW.create({
+				params: {
+					names: Object.keys(quizCountByDim),
+				},
+			});
 		} catch (e) {
 			if (e instanceof Prisma.PrismaClientKnownRequestError) {
 				console.warn(e);
@@ -139,7 +144,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 				updateTime: true,
 				uploadTime: true,
 				owner: { select: { name: true } },
-				dimensions: { select: { quizCount: true, dimension: { select: { name: true } } } },
+				dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
 			},
 		});
 		if (!archive) {
@@ -213,7 +218,9 @@ export function useArchive(app: Hono<OpacityEnv>) {
 	});
 }
 
-function getDimensionQuizCount(archiveContent: QuizArchive[]) {
+type QuizCountByDimension = { [dim: string]: number };
+
+function getDimensionQuizCount(archiveContent: QuizArchive[]): QuizCountByDimension {
 	const counter: { [key: string]: number } = {};
 	for (const quiz of archiveContent) {
 		for (const dim of quiz.dimensions) {
@@ -230,7 +237,13 @@ function getUpdateTime(archive: PractisoArchive) {
 	return updateTimeQuiz.modificationTime ?? updateTimeQuiz.creationTime;
 }
 
-async function createArchiveRecord(prisma: PrismaClient, archiveId: string, archive: PractisoArchive, name: string, ownerData: any) {
+async function createArchiveRecord(
+	prisma: PrismaClient,
+	archiveId: string,
+	archive: PractisoArchive,
+	name: string,
+	ownerData: any,
+): Promise<QuizCountByDimension> {
 	const quizCountByDim = getDimensionQuizCount(archive.content);
 	await prisma.dimension.createMany({
 		data: Object.keys(quizCountByDim).map((dName) => ({ name: dName })),
@@ -240,7 +253,7 @@ async function createArchiveRecord(prisma: PrismaClient, archiveId: string, arch
 		where: { name: { in: Object.keys(quizCountByDim) } },
 		select: { id: true },
 	});
-	const data = Object.values(quizCountByDim).map((qCount, index) => ({
+	const archiveDimensions = Object.values(quizCountByDim).map((qCount, index) => ({
 		dimensionId: dimensions[index].id,
 		quizCount: qCount,
 	}));
@@ -250,9 +263,10 @@ async function createArchiveRecord(prisma: PrismaClient, archiveId: string, arch
 			name,
 			updateTime: getUpdateTime(archive),
 			owner: ownerData,
-			dimensions: { createMany: { data } },
+			dimensions: { createMany: { data: archiveDimensions } },
 		},
 	});
+	return quizCountByDim;
 }
 
 function validifyName(name: any) {

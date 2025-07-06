@@ -137,6 +137,7 @@ describe('local Opacity worker', () => {
 			expect(response).toContainEqual({
 				name: 'Good questions',
 				quizCount: expect.toSatisfy((count) => count > 1),
+				emoji: expect.anything()
 			});
 		} finally {
 			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {

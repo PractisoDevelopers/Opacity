@@ -20,3 +20,4 @@ useWhoami(app);
 useDimensions(app);
 
 export default app satisfies ExportedHandler<Bindings>;
+export * as DimojiGeneratingWorkflow from './workflows/dimoji-gen';
