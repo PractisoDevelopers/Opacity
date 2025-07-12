@@ -82,7 +82,7 @@ export async function getArchives(opts: {
 		const noDimojis = Array.from(new Set(pagination.flatMap(({ dimensions }) => dimensions)).values())
 			.filter(({ dimension }) => !dimension.emoji)
 			.map(({ dimension }) => dimension.name);
-		if (noDimojis) {
+		if (noDimojis.length > 0) {
 			await opts.dimojiWorkflow.create({ params: { name: noDimojis } });
 		}
 	}

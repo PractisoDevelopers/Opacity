@@ -11,7 +11,7 @@ export interface Params {
 	};
 }
 
-export default class DimojiGeneratingWorkflow extends WorkflowEntrypoint<Bindings, Params> {
+export class DimojiGeneratingWorkflow extends WorkflowEntrypoint<Bindings, Params> {
 	async run(event: WorkflowEvent<Params>, step: WorkflowStep) {
 		const backend: GenerativeAi | undefined =
 			event.payload.genai != null
