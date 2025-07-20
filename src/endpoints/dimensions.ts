@@ -3,7 +3,7 @@ import usePrismaClient from '../usePrismaClient';
 import { getArchives, SortOrder } from './archives';
 import { HTTPException } from 'hono/http-exception';
 
-const MAX_QUERY_SIZE = 50;
+const MAX_QUERY_SIZE = 100;
 const DEFAULT_QUERY_SIZE = 20;
 
 export function useDimensions(app: Hono<OpacityEnv>) {
