@@ -41,7 +41,7 @@ export function useDimensions(app: Hono<OpacityEnv>) {
 			dims.map(({ name, emoji, quizCount }) => ({
 				name,
 				emoji,
-				quizCount,
+				quizCount: quizCount.quizCount ?? 0,
 			})),
 		);
 	});
