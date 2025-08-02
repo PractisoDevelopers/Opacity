@@ -71,6 +71,7 @@ export async function getArchives(opts: {
 			uploadTime: true,
 			owner: { select: { name: true } },
 			dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
+			_count: { select: { likes: true } },
 		},
 		where: opts.where,
 		orderBy,
@@ -101,6 +102,7 @@ export function mapToMetadata(dbModel: {
 	owner: {
 		name: string | null;
 	};
+	_count: { likes: number };
 	dimensions: {
 		dimension: {
 			name: string;
@@ -112,6 +114,7 @@ export function mapToMetadata(dbModel: {
 	return {
 		id: dbModel.id,
 		name: dbModel.name,
+		likes: dbModel._count.likes,
 		uploadTime: dbModel.uploadTime.toISOString(),
 		updateTime: dbModel.updateTime.toISOString(),
 		ownerName: dbModel.owner.name,

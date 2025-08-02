@@ -144,6 +144,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 				updateTime: true,
 				uploadTime: true,
 				owner: { select: { name: true } },
+				_count: { select: { likes: true } },
 				dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
 			},
 		});
