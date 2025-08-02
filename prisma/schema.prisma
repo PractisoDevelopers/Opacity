@@ -2,67 +2,67 @@
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters"]
+        provider        = "prisma-client-js"
+        previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL")
+        provider  = "postgresql"
+        url       = env("DATABASE_URL")
+        directUrl = env("DATABASE_URL")
 }
 
 model Archive {
-  id         String               @id
-  name       String?
-  uploadTime DateTime             @default(now())
-  updateTime DateTime
-  ownerId    Int
-  owner      Owner                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  dimensions DimensionOnArchive[]
-  likes      OwnerLikesArchive[]
+        id         String               @id
+        name       String?
+        uploadTime DateTime             @default(now())
+        updateTime DateTime
+        ownerId    Int
+        owner      Owner                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+        dimensions DimensionOnArchive[]
+        likes      OwnerLikesArchive[]
 
-  @@index([updateTime], type: Brin)
-  @@index([uploadTime], type: Brin)
+        @@index([updateTime], type: Brin)
+        @@index([uploadTime], type: Brin)
 }
 
 model Owner {
-  id            Int                 @id @default(autoincrement())
-  name          String?
-  archives      Archive[]
-  clients       Client[]
-  likedArchives OwnerLikesArchive[]
+        id            Int                 @id @default(autoincrement())
+        name          String?
+        archives      Archive[]
+        clients       Client[]
+        likedArchives OwnerLikesArchive[]
 }
 
 model Client {
-  id      String @id
-  owner   Owner  @relation(fields: [ownerId], references: [id])
-  name    String @db.VarChar(20)
-  ownerId Int
+        id      String @id
+        owner   Owner  @relation(fields: [ownerId], references: [id])
+        name    String @db.VarChar(20)
+        ownerId Int
 }
 
 model Dimension {
-  id       Int                  @id @default(autoincrement())
-  name     String               @unique
-  emoji    String?
-  archives DimensionOnArchive[]
+        id       Int                  @id @default(autoincrement())
+        name     String               @unique
+        emoji    String?
+        archives DimensionOnArchive[]
 }
 
 model DimensionOnArchive {
-  dimensionId Int
-  dimension   Dimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
-  archiveId   String
-  archive     Archive   @relation(fields: [archiveId], references: [id], onDelete: Cascade)
-  quizCount   Int
+        dimensionId Int
+        dimension   Dimension @relation(fields: [dimensionId], references: [id], onDelete: Cascade)
+        archiveId   String
+        archive     Archive   @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+        quizCount   Int
 
-  @@id([archiveId, dimensionId])
+        @@id([archiveId, dimensionId])
 }
 
 model OwnerLikesArchive {
-  ownerId   Int
-  owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  archiveId String
-  archive   Archive @relation(fields: [archiveId], references: [id], onDelete: Cascade)
+        ownerId   Int
+        owner     Owner   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+        archiveId String
+        archive   Archive @relation(fields: [archiveId], references: [id], onDelete: Cascade)
 
-  @@id([archiveId, ownerId])
+        @@id([archiveId, ownerId])
 }
