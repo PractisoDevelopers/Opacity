@@ -97,6 +97,13 @@ export function useArchive(app: Hono<OpacityEnv>) {
 
 	app.get('/archive/:id', defaultCache, skipArchiveFileMiddleware, async (c) => {
 		const id = c.req.param('id');
+		async function incrementDownloads() {
+			const prisma = usePrismaClient(c.env.DATABASE_URL);
+			await prisma.archive.update({
+				where: { id },
+				data: { downloads: { increment: 1 } },
+			});
+		}
 		if (c.env.S3_API_URL && c.env.S3_BUCKET_NAME && c.env.S3_PUBLIC_URL && c.env.S3_ACCESS_KEY_ID && c.env.S3_ACCESS_KEY) {
 			const client = new S3Client({
 				endpoint: c.env.S3_API_URL,
@@ -116,12 +123,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			if (!url) {
 				throw new HTTPException(404);
 			}
-
-			const prisma = usePrismaClient(c.env.DATABASE_URL);
-			await prisma.archive.update({
-				where: { id },
-				data: { downloads: { increment: 1 } },
-			});
+			await incrementDownloads();
 			return c.redirect(url, 301);
 		}
 
@@ -129,6 +131,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		if (!storage) {
 			throw new HTTPException(404);
 		}
+		await incrementDownloads();
 		const ct = storage.httpMetadata?.contentType;
 		return new Response(storage.body, {
 			headers: {
@@ -151,6 +154,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 				uploadTime: true,
 				owner: { select: { name: true } },
 				_count: { select: { likes: true } },
+				downloads: true,
 				dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
 			},
 		});

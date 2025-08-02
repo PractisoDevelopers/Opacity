@@ -70,6 +70,7 @@ export async function getArchives(opts: {
 			updateTime: true,
 			uploadTime: true,
 			owner: { select: { name: true } },
+			downloads: true,
 			dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
 			_count: { select: { likes: true } },
 		},
@@ -103,6 +104,7 @@ export function mapToMetadata(dbModel: {
 		name: string | null;
 	};
 	_count: { likes: number };
+	downloads: number,
 	dimensions: {
 		dimension: {
 			name: string;
@@ -118,6 +120,7 @@ export function mapToMetadata(dbModel: {
 		uploadTime: dbModel.uploadTime.toISOString(),
 		updateTime: dbModel.updateTime.toISOString(),
 		ownerName: dbModel.owner.name,
+		downloads: dbModel.downloads,
 		dimensions: dbModel.dimensions.map(({ dimension, quizCount }) => ({
 			name: dimension.name,
 			quizCount,

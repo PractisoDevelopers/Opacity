@@ -137,7 +137,7 @@ describe('local Opacity worker', () => {
 			expect(response).toContainEqual({
 				name: 'Good questions',
 				quizCount: expect.toSatisfy((count) => count > 1),
-				emoji: expect.anything()
+				emoji: expect.anything(),
 			});
 		} finally {
 			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
@@ -172,6 +172,22 @@ describe('local Opacity worker', () => {
 				headers: { authorization: `Bearer ${jwt}` },
 			});
 		}
+	});
+
+	it('should count downloads', async () => {
+		async function getDownloads(archiveId: string) {
+			const res = await SELF.fetch(`${endpoint}/archive/${archiveId}/metadata`);
+			const { downloads } = (await res.json()) as { downloads: number };
+			return downloads;
+		}
+		const { jwt, archiveId } = await uploadArchive(getUltimateArchive());
+		expect(await getDownloads(archiveId)).toEqual(0);
+		const response = await SELF.fetch(`${endpoint}/archive/${archiveId}`);
+
+		expect(response.ok).toBeTruthy();
+		expect(await getDownloads(archiveId)).toEqual(1);
+
+		await SELF.fetch(`${endpoint}/archive/${archiveId}`, { method: 'DELETE', headers: { authorization: `Bearer ${jwt}` } });
 	});
 });
 
