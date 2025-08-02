@@ -21,6 +21,7 @@ model Archive {
   owner      Owner                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   dimensions DimensionOnArchive[]
   likes      OwnerLikesArchive[]
+  downloads  Int                  @default(0)
 
   @@index([updateTime], type: Brin)
   @@index([uploadTime], type: Brin)

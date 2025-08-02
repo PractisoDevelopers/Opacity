@@ -118,7 +118,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			}
 
 			const prisma = usePrismaClient(c.env.DATABASE_URL);
-			prisma.archive.update({
+			await prisma.archive.update({
 				where: { id },
 				data: { downloads: { increment: 1 } },
 			});
