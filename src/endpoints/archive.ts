@@ -116,6 +116,12 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			if (!url) {
 				throw new HTTPException(404);
 			}
+
+			const prisma = usePrismaClient(c.env.DATABASE_URL);
+			prisma.archive.update({
+				where: { id },
+				data: { downloads: { increment: 1 } },
+			});
 			return c.redirect(url, 301);
 		}
 
