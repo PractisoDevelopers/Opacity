@@ -3,8 +3,6 @@ import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
-import { PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
-import { ArchiveParseError, Parser } from '@practiso/sdk';
 import { clientIdSize, maxNameLength } from '../magic';
 import * as jwt from 'hono/jwt';
 import { Prisma, PrismaClient } from '@prisma/client';
@@ -12,6 +10,9 @@ import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { mapToMetadata } from './archives';
 import { defaultCache, etagCache, timedCache } from '../middleware/cache';
+import { Parser } from '@practiso/sdk';
+import { Preview } from '../preview';
+import { ArchiveParseError, PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
 
 export function useArchive(app: Hono<OpacityEnv>) {
 	app.put('/archive', async (c) => {
@@ -226,6 +227,18 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			},
 		});
 		return new Response(null, { status: 204, headers: updatedHeaders });
+	});
+
+	app.get('/archive/:id/preview', async (c) => {
+		const id = c.req.param('id');
+		const obj = await c.env.PSARCHIVE_BUCKET.get(id);
+		if (obj == null) {
+			throw new HTTPException(404, { message: 'Archive not found.' });
+		}
+		const parser = new Parser();
+		await obj.body.pipeTo(parser.sink);
+		const archive = await parser.result();
+		return c.json(archive.content.map((quiz) => ({ name: quiz.name, body: Preview.ofQuiz(quiz) })));
 	});
 }
 
