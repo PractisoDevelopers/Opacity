@@ -236,7 +236,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			throw new HTTPException(404, { message: 'Archive not found.' });
 		}
 		const parser = new Parser();
-		await obj.body.pipeTo(parser.sink);
+		await obj.body.pipeThrough(new DecompressionStream('gzip')).pipeTo(parser.sink);
 		const archive = await parser.result();
 		return c.json(archive.content.map((quiz) => ({ name: quiz.name, body: Preview.ofQuiz(quiz) })));
 	});
