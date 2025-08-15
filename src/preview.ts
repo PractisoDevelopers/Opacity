@@ -28,10 +28,10 @@ function getAlphabetRepresentation(n: number): string {
 	const span = 'Z'.charCodeAt(0) - firstLetter;
 	let remaining = n;
 	let result = '';
-	while (remaining >= 0) {
+	do {
 		const code = remaining % span;
 		remaining -= code;
 		result += String.fromCharCode(code + firstLetter);
-	}
+	} while (remaining > 0);
 	return result;
 }
