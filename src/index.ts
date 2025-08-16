@@ -5,6 +5,7 @@ import { useWhoami } from './endpoints/whoami';
 import { useArchives } from './endpoints/archives';
 import { useArchive } from './endpoints/archive';
 import { useDimensions } from './endpoints/dimensions';
+import { useBonjour } from './endpoints/bonjour';
 
 const app = new Hono<OpacityEnv>();
 
@@ -13,6 +14,7 @@ app.use('*', async (c, next) => {
 	return middleware(c, next);
 });
 
+useBonjour(app);
 useArchives(app);
 useArchive(app);
 useArchiveLike(app);

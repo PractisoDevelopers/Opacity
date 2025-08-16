@@ -37,5 +37,5 @@
 	"vars": {
 		"S3_BUCKET_NAME": "practiso-archive",
 		"S3_PUBLIC_URL": "https://practiso-objects.zhufucdev.com"
-	}
+	},
 }

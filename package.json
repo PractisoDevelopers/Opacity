@@ -3,7 +3,7 @@
 	"version": "0.0.0",
 	"private": true,
 	"scripts": {
-		"build": "wrangler types && prisma generate",
+		"build": "./macros.sh && wrangler types && prisma generate",
 		"deploy": "prisma migrate deploy && prisma generate && wrangler deploy",
 		"dev": "wrangler dev",
 		"start": "wrangler dev",
