@@ -238,7 +238,14 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		const parser = new Parser();
 		await obj.body.pipeThrough(new DecompressionStream('gzip')).pipeTo(parser.sink);
 		const archive = await parser.result();
-		return c.json(archive.content.map((quiz) => ({ name: quiz.name, body: Preview.ofQuiz(quiz) })));
+
+		return c.json(
+			archive.content.map((quiz) => ({
+				name: quiz.name,
+				body: Preview.ofQuiz(quiz),
+				dimensions: quiz.dimensions.length > 0 ? quiz.dimensions.map(({ name }) => name) : undefined,
+			})),
+		);
 	});
 }
 
