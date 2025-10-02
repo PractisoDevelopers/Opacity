@@ -304,7 +304,7 @@ function validifyName(name: any) {
 	if (!name || typeof name !== 'string') {
 		throw new HTTPException(400, { message: 'Missing name property.' });
 	}
-	const processed = name.replaceAll(/\s{2,}/g, ' ');
+	const processed = name.replaceAll(/\s+/g, ' ');
 	if (processed.length > maxNameLength) {
 		throw new HTTPException(400, { message: 'Invalid name property.' });
 	}
