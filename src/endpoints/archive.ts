@@ -13,6 +13,7 @@ import { defaultCache, etagCache, timedCache } from '../middleware/cache';
 import { Parser } from '@practiso/sdk';
 import { Preview } from '../preview';
 import { ArchiveParseError, PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
+import { Names } from '../validify/name';
 
 export function useArchive(app: Hono<OpacityEnv>) {
 	app.put('/archive', async (c) => {
@@ -49,7 +50,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		}
 
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
-		let ownerData, returnJson;
+		let ownerData: Prisma.OwnerCreateNestedOneWithoutArchivesInput, returnJson;
 		if (clientIdInsecure) {
 			const existingOwner = await prisma.owner.findFirst({ where: { clients: { some: { id: clientIdInsecure } } } });
 			if (!existingOwner) {
@@ -59,13 +60,8 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			returnJson = { archiveId };
 		} else {
 			const clientId = nanoid(clientIdSize);
-			const clientName = body['client-name'];
-			if (!clientName) {
-				throw new HTTPException(400, { message: 'Missing client name.' });
-			}
-			if (typeof clientName !== 'string' || clientName.length > maxNameLength) {
-				throw new HTTPException(400, { message: 'Bad client name.' });
-			}
+			const clientName = validifyName(body['client-name'], 'client name');
+			const ownerName = body['owner-name'];
 			ownerData = { create: { clients: { create: { id: clientId, name: clientName } } } };
 
 			const clientIdSigned = await jwt.sign({ cid: clientId }, c.env.JWT_SECRET);
@@ -273,7 +269,7 @@ async function createArchiveRecord(
 	archiveId: string,
 	archive: PractisoArchive,
 	name: string,
-	ownerData: any,
+	ownerData: Prisma.OwnerCreateNestedOneWithoutArchivesInput,
 ): Promise<QuizCountByDimension> {
 	const quizCountByDim = getDimensionQuizCount(archive.content);
 	await prisma.dimension.createMany({
@@ -300,15 +296,8 @@ async function createArchiveRecord(
 	return quizCountByDim;
 }
 
-function validifyName(name: any) {
-	if (!name || typeof name !== 'string') {
-		throw new HTTPException(400, { message: 'Missing name property.' });
-	}
-	const processed = name.replaceAll(/\s+/g, ' ');
-	if (processed.length > maxNameLength) {
-		throw new HTTPException(400, { message: 'Invalid name property.' });
-	}
-	return processed;
+function validifyName(name: any, domain: string = 'name') {
+	return Names.validify(name, domain);
 }
 
 const skipArchiveFileMiddleware = etagCache<{ Bindings: Bindings }>(async (c) => {

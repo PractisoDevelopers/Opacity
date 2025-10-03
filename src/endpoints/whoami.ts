@@ -4,6 +4,7 @@ import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Prisma } from '@prisma/client';
 import { maxNameLength } from '../magic';
+import { Names } from '../validify/name';
 
 export function useWhoami(app: Hono<OpacityEnv>) {
 	app.all('/whoami', jwtMandated);
@@ -39,8 +40,5 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 }
 
 function validifyName(newName: any, domain: string) {
-	if (typeof newName !== 'string' || newName.length > maxNameLength) {
-		throw new HTTPException(400, { message: `Bad ${domain}.` });
-	}
-	return newName;
+	return Names.validify(newName, domain);
 }
