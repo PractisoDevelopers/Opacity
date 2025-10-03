@@ -8,7 +8,7 @@ export namespace Names {
 
 	export function validify(newName: any, domain: string) {
 		if (typeof newName !== 'string') {
-			throw new HTTPException(400, { message: `Bad ${domain}.` });
+			throw new HTTPException(400, { message: `Missing ${domain}.` });
 		}
 		const processed = Names.processed(newName);
 		if (processed.length > maxNameLength) {
