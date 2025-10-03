@@ -3,7 +3,7 @@ import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Hono } from 'hono';
 import { nanoid } from 'nanoid';
-import { clientIdSize, maxNameLength } from '../magic';
+import { clientIdSize } from '../magic';
 import * as jwt from 'hono/jwt';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -61,8 +61,9 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		} else {
 			const clientId = nanoid(clientIdSize);
 			const clientName = validifyName(body['client-name'], 'client name');
-			const ownerName = body['owner-name'];
-			ownerData = { create: { clients: { create: { id: clientId, name: clientName } } } };
+			const ownerNameInsecure = body['owner-name'];
+			const ownerName = ownerNameInsecure ? Names.validify(ownerNameInsecure, 'owner name') : clientName;
+			ownerData = { create: { clients: { create: { id: clientId, name: ownerName } } } };
 
 			const clientIdSigned = await jwt.sign({ cid: clientId }, c.env.JWT_SECRET);
 			returnJson = { archiveId, jwt: clientIdSigned };

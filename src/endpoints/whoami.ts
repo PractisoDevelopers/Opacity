@@ -3,7 +3,6 @@ import { jwtMandated } from '../middleware/anoJwt';
 import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Prisma } from '@prisma/client';
-import { maxNameLength } from '../magic';
 import { Names } from '../validify/name';
 
 export function useWhoami(app: Hono<OpacityEnv>) {
