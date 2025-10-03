@@ -63,7 +63,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			if (!clientName) {
 				throw new HTTPException(400, { message: 'Missing client name.' });
 			}
-			if (typeof clientName !== 'string') {
+			if (typeof clientName !== 'string' || clientName.length > maxNameLength) {
 				throw new HTTPException(400, { message: 'Bad client name.' });
 			}
 			ownerData = { create: { clients: { create: { id: clientId, name: clientName } } } };
