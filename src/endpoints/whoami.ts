@@ -3,6 +3,7 @@ import { jwtMandated } from '../middleware/anoJwt';
 import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Prisma } from '@prisma/client';
+import { maxNameLength } from '../magic';
 
 export function useWhoami(app: Hono<OpacityEnv>) {
 	app.all('/whoami', jwtMandated);
@@ -26,13 +27,20 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 		const updateInput: Prisma.ClientUpdateInput = {};
 
 		if (form.has('client-name')) {
-			const newName = form.get('client-name') as string;
+			const newName = validifyName(form.get('client-name'), 'client name');
 			updateInput.name = newName;
 		}
 		if (form.has('owner-name')) {
-			const newName = form.get('owner-name') as string;
+			const newName = validifyName(form.get('owner-name'), 'owner name');
 			updateInput.owner = { update: { name: newName } };
 		}
 		prisma.client.update({ where: { id: cid }, data: updateInput });
 	});
+}
+
+function validifyName(newName: any, domain: string) {
+	if (typeof newName !== 'string' || newName.length > maxNameLength) {
+		throw new HTTPException(400, { message: `Bad ${domain}.` });
+	}
+	return newName;
 }
