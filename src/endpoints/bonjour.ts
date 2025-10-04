@@ -6,6 +6,6 @@ const reportedMagicValues = `page_size:${pageSize} max_name_length:${maxNameLeng
 
 export function useBonjour(app: Hono<OpacityEnv>) {
 	app.get('/bonjour', async (c) => {
-		return c.text(`opacity version:${compat.version} build_date:${compat.buildDate} ${reportedMagicValues}`);
+		return c.text(`opacity version:${compat.version} build_date:${compat.getBuildDate()} ${reportedMagicValues}`);
 	});
 }
