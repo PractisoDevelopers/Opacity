@@ -59,6 +59,9 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			ownerData = { connect: { id: existingOwner.id } };
 			returnJson = { archiveId };
 		} else {
+			if (!body['client-name']) {
+				throw new HTTPException(401, { message: 'Needs client name for registration.' });
+			}
 			const clientId = nanoid(clientIdSize);
 			const clientName = validifyName(body['client-name'], 'client name');
 			const ownerNameInsecure = body['owner-name'];
