@@ -12,7 +12,7 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
 		const client = await prisma.client.findUnique({
 			where: { id: cid },
-			include: { owner: { select: { name: true } } },
+			include: { owner: { select: { name: true, privileges: true } } },
 		});
 		if (!client) {
 			throw new HTTPException(403);

@@ -30,6 +30,7 @@ model Archive {
 model Owner {
   id            Int                 @id @default(autoincrement())
   name          String?
+  mode          Int                 @default(11)
   archives      Archive[]
   clients       Client[]
   likedArchives OwnerLikesArchive[]
