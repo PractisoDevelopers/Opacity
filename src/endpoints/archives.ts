@@ -3,14 +3,29 @@ import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { pageSize } from '../magic';
 import { Prisma, PrismaClient } from '@prisma/client';
+import ownerMode from '../middleware/ownerMode';
+import Privileges from '../privilege';
 
 export function useArchives(app: Hono<OpacityEnv>) {
-	app.get('/archives', async (c) => {
+	app.get('/archives', ownerMode, async (c) => {
+		const privileges = new Privileges(c.get('ownerMode'));
+		const jwt = c.get('jwtPayload');
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
 		const query = c.req.query();
 		const sortBy = query['by'],
 			sortOrder = query['order'] as SortOrder,
 			predecessor = query['predecessor'];
+		let where: Prisma.ArchiveWhereInput | undefined;
+		if (jwt && !privileges.user.read && privileges.others.read) {
+			where = { owner: { NOT: { clients: { some: { id: jwt.cid } } } } };
+		} else if (privileges.user.read && !privileges.others.read) {
+			if (jwt) {
+				where = { owner: { clients: { some: { id: jwt.cid } } } };
+			} else {
+				return;
+			}
+		}
+
 		return c.json(
 			await getArchives({
 				prisma,
@@ -18,6 +33,7 @@ export function useArchives(app: Hono<OpacityEnv>) {
 				sortOrder,
 				predecessor,
 				dimojiWorkflow: c.env.DIMOJI_GEN_WORKFLOW,
+				where,
 			}),
 		);
 	});
@@ -104,7 +120,7 @@ export function mapToMetadata(dbModel: {
 		name: string | null;
 	};
 	_count: { likes: number };
-	downloads: number,
+	downloads: number;
 	dimensions: {
 		dimension: {
 			name: string;

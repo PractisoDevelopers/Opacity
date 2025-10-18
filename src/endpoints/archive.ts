@@ -14,6 +14,8 @@ import { Parser } from '@practiso/sdk';
 import { Preview } from '../preview';
 import { ArchiveParseError, PractisoArchive, QuizArchive } from '@practiso/sdk/lib/model';
 import { Names } from '../validify/name';
+import ownerMode from '../middleware/ownerMode';
+import archiveAuth from '../middleware/archiveAuth';
 
 export function useArchive(app: Hono<OpacityEnv>) {
 	app.put('/archive', async (c) => {
@@ -96,7 +98,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		return c.json(returnJson, 201);
 	});
 
-	app.get('/archive/:id', defaultCache, skipArchiveFileMiddleware, async (c) => {
+	app.get('/archive/:id', defaultCache, skipArchiveFile, ownerMode, archiveAuth('read'), async (c) => {
 		const id = c.req.param('id');
 		async function incrementDownloads() {
 			const prisma = usePrismaClient(c.env.DATABASE_URL);
@@ -143,7 +145,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		});
 	});
 
-	app.get('/archive/:id/metadata', skipArchiveMetadataMiddleware, async (c) => {
+	app.get('/archive/:id/metadata', skipArchiveMetadataMiddleware, ownerMode, archiveAuth('read'), async (c) => {
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
 		const id = c.req.param('id');
 		const archive = await prisma.archive.findUnique({
@@ -167,7 +169,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		});
 	});
 
-	app.delete('/archive/:id', jwtMandated, async (c) => {
+	app.delete('/archive/:id', jwtMandated, ownerMode, archiveAuth('write'), async (c) => {
 		const id = c.req.param('id');
 		const cid = c.get('clientId');
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
@@ -182,27 +184,15 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		if (!archive) {
 			throw new HTTPException(404, { message: 'Archive not found.' });
 		}
-		if (!archive.owner.clients) {
-			throw new HTTPException(403, { message: 'Not owning this archive.' });
-		}
 		await prisma.$transaction(async () => {
 			await Promise.all([prisma.archive.delete({ where: { id } }), c.env.PSARCHIVE_BUCKET.delete(id)]);
 		});
 		return new Response(null, { status: 202 });
 	});
 
-	app.patch('/archive/:id', jwtMandated, async (c) => {
+	app.patch('/archive/:id', jwtMandated, ownerMode, archiveAuth('write'), async (c) => {
 		const id = c.req.param('id');
-		const clientId = c.get('clientId');
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
-		if (
-			!(await prisma.archive.findUnique({
-				where: { id, owner: { clients: { some: { id: clientId } } } },
-				select: { id: true },
-			}))
-		) {
-			throw new HTTPException(403, { message: 'Not owning this archive.' });
-		}
 		const r2Obj = await c.env.PSARCHIVE_BUCKET.head(id);
 		if (!r2Obj) {
 			throw new HTTPException(404);
@@ -304,7 +294,7 @@ function validifyName(name: any, domain: string = 'name') {
 	return Names.validify(name, domain);
 }
 
-const skipArchiveFileMiddleware = etagCache<{ Bindings: Bindings }>(async (c) => {
+const skipArchiveFile = etagCache<{ Bindings: Bindings }>(async (c) => {
 	const id = c.req.param('id');
 	const archive = await c.env.PSARCHIVE_BUCKET.head(id);
 	if (!archive) {

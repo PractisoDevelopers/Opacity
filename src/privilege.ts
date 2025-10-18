@@ -2,8 +2,8 @@ export default class Privileges {
 	private _value: [number];
 	readonly user: Primitive;
 	readonly others: Primitive;
-	constructor(matrix: number = 0b1011) {
-		this._value = [matrix];
+	constructor(matrix?: number) {
+		this._value = [matrix ?? 0b1011];
 		this.user = new Primitive(this._value);
 		this.others = new Primitive(this._value, 2);
 	}
