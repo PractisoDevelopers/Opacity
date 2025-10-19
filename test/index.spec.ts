@@ -6,7 +6,7 @@ import { pageSize } from '../src/magic';
 
 const endpoint = 'https://exmaple.com';
 
-describe('local Opacity worker', () => {
+describe('basic', () => {
 	it('should respond with archive list', async () => {
 		const response = await SELF.fetch(`${endpoint}/archives`);
 		expect(await response.json()).toMatchObject({
@@ -46,7 +46,9 @@ describe('local Opacity worker', () => {
 		const page2 = (await (await SELF.fetch(`${endpoint}/archives?predecessor=${page1.next}`)).json()) as pr;
 		expect(page1.page).not.toEqual(page2.page);
 	});
+});
 
+describe('upload', () => {
 	it('should upload ultimate question', async () => {
 		const archive = getUltimateArchive();
 		const uploadGuest = await uploadArchive(archive);
@@ -74,56 +76,9 @@ describe('local Opacity worker', () => {
 			expect(response.status, `deletion#${index} failed`).toBe(202);
 		});
 	});
+});
 
-	it('should like and dislike', async () => {
-		const archive = getUltimateArchive();
-		const { jwt, archiveId } = await uploadArchive(archive);
-		const authHeaders = { authorization: `Bearer ${jwt}` };
-		const likeResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}/like`, {
-			method: 'PUT',
-			headers: authHeaders,
-		});
-		expect(likeResponse.status, 'failed to like').toBe(201);
-
-		async function getArchiveLikes() {
-			const { count } = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/like`)).json()) as {
-				count: number;
-			};
-			return count;
-		}
-
-		expect(await getArchiveLikes(), 'like has no effect').toBe(1);
-
-		const dislikeResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}/like`, {
-			method: 'DELETE',
-			headers: authHeaders,
-		});
-		expect(dislikeResponse.status, 'failed to dislike').toBe(202);
-		expect(await getArchiveLikes(), 'dislike has no effect').toBe(0);
-
-		const deleteResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
-			headers: authHeaders,
-			method: 'DELETE',
-		});
-		expect(deleteResponse.status, 'failed to delete archive').toBe(202);
-	});
-
-	it('should support patching', async () => {
-		const { jwt, archiveId } = await uploadArchive(getUltimateArchive(), undefined, 'SIXTEEN!!!');
-		const form = new FormData();
-		const newName = "what'd dog doing";
-		form.append('name', newName);
-		const response = await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
-			method: 'PATCH',
-			headers: { authorization: `Bearer ${jwt}` },
-			body: form,
-		});
-		expect(response.status).toBe(204);
-
-		const metadata = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/metadata`)).json()) as any;
-		expect(metadata.name).toEqual(newName);
-	});
-
+describe('queries', () => {
 	it('should query dimensions', async () => {
 		const { jwt, archiveId } = await uploadArchive(
 			new PractisoArchive([
@@ -173,6 +128,57 @@ describe('local Opacity worker', () => {
 			});
 		}
 	});
+});
+
+describe('social', () => {
+	it('should like and dislike', async () => {
+		const archive = getUltimateArchive();
+		const { jwt, archiveId } = await uploadArchive(archive);
+		const authHeaders = { authorization: `Bearer ${jwt}` };
+		const likeResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}/like`, {
+			method: 'PUT',
+			headers: authHeaders,
+		});
+		expect(likeResponse.status, 'failed to like').toBe(201);
+
+		async function getArchiveLikes() {
+			const { count } = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/like`)).json()) as {
+				count: number;
+			};
+			return count;
+		}
+
+		expect(await getArchiveLikes(), 'like has no effect').toBe(1);
+
+		const dislikeResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}/like`, {
+			method: 'DELETE',
+			headers: authHeaders,
+		});
+		expect(dislikeResponse.status, 'failed to dislike').toBe(202);
+		expect(await getArchiveLikes(), 'dislike has no effect').toBe(0);
+
+		const deleteResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+			headers: authHeaders,
+			method: 'DELETE',
+		});
+		expect(deleteResponse.status, 'failed to delete archive').toBe(202);
+	});
+
+	it('should support patching', async () => {
+		const { jwt, archiveId } = await uploadArchive(getUltimateArchive(), undefined, 'SIXTEEN!!!');
+		const form = new FormData();
+		const newName = "what'd dog doing";
+		form.append('name', newName);
+		const response = await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+			method: 'PATCH',
+			headers: { authorization: `Bearer ${jwt}` },
+			body: form,
+		});
+		expect(response.status).toBe(204);
+
+		const metadata = (await (await SELF.fetch(`${endpoint}/archive/${archiveId}/metadata`)).json()) as any;
+		expect(metadata.name).toEqual(newName);
+	});
 
 	it('should count downloads', async () => {
 		async function getDownloads(archiveId: string) {
@@ -221,4 +227,53 @@ function getUltimateArchive() {
 			],
 		}),
 	]);
+	it('should query dimensions', async () => {
+		const { jwt, archiveId } = await uploadArchive(
+			new PractisoArchive([
+				new QuizArchive('Good question 69', {
+					dimensions: [new DimensionArchive('Good questions')],
+				}),
+			]),
+		);
+		const response = await (await SELF.fetch(`${endpoint}/dimensions`)).json<string[]>();
+		try {
+			expect(response).toContainEqual({
+				name: 'Good questions',
+				quizCount: expect.toSatisfy((count) => count > 1),
+				emoji: expect.anything(),
+			});
+		} finally {
+			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+				method: 'DELETE',
+				headers: { authorization: `Bearer ${jwt}` },
+			});
+		}
+	});
+
+	it('should query archives by dimension', async () => {
+		const { jwt, archiveId } = await uploadArchive(
+			new PractisoArchive([
+				new QuizArchive('Good question 69', {
+					dimensions: [new DimensionArchive('Good questions')],
+				}),
+			]),
+		);
+		const { page, next } = (await (await SELF.fetch(`${endpoint}/dimension/${encodeURI('Good questions')}/archives`)).json()) as any;
+		try {
+			expect(page).toContainEqual(
+				expect.objectContaining({
+					dimensions: expect.arrayContaining([
+						expect.objectContaining({
+							name: 'Good questions',
+						}),
+					]),
+				}),
+			);
+		} finally {
+			await SELF.fetch(`${endpoint}/archive/${archiveId}`, {
+				method: 'DELETE',
+				headers: { authorization: `Bearer ${jwt}` },
+			});
+		}
+	});
 }
