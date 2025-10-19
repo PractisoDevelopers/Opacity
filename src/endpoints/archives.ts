@@ -136,6 +136,7 @@ export function mapToMetadata(dbModel: {
 		likes: dbModel._count.likes,
 		uploadTime: dbModel.uploadTime.toISOString(),
 		updateTime: dbModel.updateTime.toISOString(),
+		ownerId: dbModel.owner.id,
 		ownerName: dbModel.owner.name,
 		downloads: dbModel.downloads,
 		dimensions: dbModel.dimensions.map(({ dimension, quizCount }) => ({
