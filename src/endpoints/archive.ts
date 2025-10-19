@@ -155,7 +155,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 				name: true,
 				updateTime: true,
 				uploadTime: true,
-				owner: { select: { name: true } },
+				owner: { select: { name: true, id: true } },
 				_count: { select: { likes: true } },
 				downloads: true,
 				dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
