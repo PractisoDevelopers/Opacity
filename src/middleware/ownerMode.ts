@@ -12,7 +12,7 @@ const ownerMode = createMiddleware<OpacityEnv>(async (c, next) => {
 	const prisma = usePrismaClient(c.env.DATABASE_URL);
 	const client = await prisma.client.findUnique({ where: { id: cid }, select: { owner: { select: { mode: true } } } });
 	if (!client) {
-		throw new HTTPException(403, { message: 'Authentication token is invalid.' });
+		throw new HTTPException(401, { message: 'Authentication token is invalid.' });
 	}
 	c.set('ownerMode', client.owner.mode);
 });
