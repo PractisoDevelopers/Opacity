@@ -15,6 +15,7 @@ const ownerMode = createMiddleware<OpacityEnv>(async (c, next) => {
 		throw new HTTPException(401, { message: 'Authentication token is invalid.' });
 	}
 	c.set('ownerMode', client.owner.mode);
+	await next();
 });
 
 export default ownerMode;
