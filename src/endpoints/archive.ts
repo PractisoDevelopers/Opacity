@@ -67,8 +67,10 @@ export function useArchive(app: Hono<OpacityEnv>) {
 			const clientId = nanoid(clientIdSize);
 			const clientName = validifyName(body['client-name'], 'client name');
 			const ownerNameInsecure = body['owner-name'];
-			const ownerName = ownerNameInsecure ? Names.validify(ownerNameInsecure, 'owner name') : clientName;
-			ownerData = { create: { clients: { create: { id: clientId, name: ownerName } } } };
+			const ownerName = ownerNameInsecure ? Names.validify(ownerNameInsecure, 'owner name') : null;
+			ownerData = {
+				create: { clients: { create: { id: clientId, name: clientName } }, name: ownerName == clientName ? null : ownerName },
+			};
 
 			const clientIdSigned = await jwt.sign({ cid: clientId }, c.env.JWT_SECRET);
 			returnJson = { archiveId, jwt: clientIdSigned };
