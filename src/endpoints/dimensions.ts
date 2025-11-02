@@ -25,11 +25,13 @@ export function useDimensions(app: Hono<OpacityEnv>) {
 				prisma.dimension
 					.findMany({
 						where: { id: { in: meta.map(({ dimensionId }) => dimensionId) } },
-						select: { emoji: true, name: true },
+						select: { id: true, emoji: true, name: true },
 					})
 					.then((dims) => ({ meta, dims })),
 			)
-			.then(({ meta, dims }) => meta.map(({ _sum }, i) => ({ quizCount: _sum, ...dims[i] })));
+			.then(({ meta, dims }) =>
+				meta.map(({ _sum, dimensionId }) => ({ quizCount: _sum, ...dims.find(({ id }) => id == dimensionId)! })),
+			);
 
 		const noDimoji = new Set(dims.filter(({ emoji }) => !emoji).map(({ name }) => name));
 		if (noDimoji) {
