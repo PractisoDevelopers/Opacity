@@ -45,6 +45,7 @@ export async function getArchives(opts: {
 	sortOrder?: SortOrder;
 	predecessor?: string;
 	where?: Prisma.ArchiveWhereInput;
+	ownerId?: number;
 	dimojiWorkflow?: Workflow;
 }) {
 	let orderBy: Prisma.ArchiveOrderByWithRelationInput;
@@ -89,6 +90,7 @@ export async function getArchives(opts: {
 			downloads: true,
 			dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
 			_count: { select: { likes: true } },
+			likes: { where: { ownerId: opts.ownerId }, select: { archiveId: true } },
 		},
 		where: opts.where,
 		orderBy,
@@ -121,6 +123,7 @@ export function mapToMetadata(dbModel: {
 		id: number;
 	};
 	_count: { likes: number };
+	likes?: {}[];
 	downloads: number;
 	dimensions: {
 		dimension: {
@@ -134,6 +137,7 @@ export function mapToMetadata(dbModel: {
 		id: dbModel.id,
 		name: dbModel.name,
 		likes: dbModel._count.likes,
+		likedByUser: (dbModel.likes?.length ?? 0) > 0,
 		uploadTime: dbModel.uploadTime.toISOString(),
 		updateTime: dbModel.updateTime.toISOString(),
 		ownerId: dbModel.owner.id,
