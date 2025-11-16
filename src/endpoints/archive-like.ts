@@ -71,7 +71,7 @@ export function useArchiveLike(app: Hono<OpacityEnv>) {
 			});
 		} catch (e) {
 			if (e instanceof Prisma.PrismaClientKnownRequestError) {
-				if (e.code === 'P2001') {
+				if (e.code === 'P2025') {
 					throw new HTTPException(404, { message: 'Not liked.' });
 				}
 			}
