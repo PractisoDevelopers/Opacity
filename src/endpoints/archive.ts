@@ -8,7 +8,7 @@ import * as jwt from 'hono/jwt';
 import { Prisma, PrismaClient } from '@prisma/client';
 import { GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { mapToMetadata } from './archives';
+import { getArchiveSelectArguments, mapToMetadata } from './archives';
 import { defaultCache, etagCache, timedCache } from '../middleware/cache';
 import { Parser } from '@practiso/sdk';
 import { Preview } from '../preview';
@@ -150,18 +150,11 @@ export function useArchive(app: Hono<OpacityEnv>) {
 	app.get('/archive/:id/metadata', skipArchiveMetadataMiddleware, ownerMode, archiveAuth('read'), async (c) => {
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
 		const id = c.req.param('id');
+		const jwt = c.get('jwtPayload');
+		const owner = jwt ? await prisma.owner.findFirst({ where: { clients: { some: { id: jwt.cid } } }, select: { id: true } }) : null;
 		const archive = await prisma.archive.findUnique({
 			where: { id },
-			select: {
-				id: true,
-				name: true,
-				updateTime: true,
-				uploadTime: true,
-				owner: { select: { name: true, id: true } },
-				_count: { select: { likes: true } },
-				downloads: true,
-				dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
-			},
+			select: getArchiveSelectArguments(owner?.id),
 		});
 		if (!archive) {
 			throw new HTTPException(404);

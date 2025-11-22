@@ -55,6 +55,9 @@ export function useDimensions(app: Hono<OpacityEnv>) {
 		const sortBy = query['by'],
 			sortOrder = query['order'] as SortOrder,
 			predecessor = query['predecessor'];
+
+		const jwt = c.get('jwtPayload');
+		const owner = jwt ? await prisma.owner.findFirst({ where: { clients: { some: { id: jwt.cid } } }, select: { id: true } }) : null;
 		return c.json(
 			await getArchives({
 				prisma,
@@ -62,6 +65,7 @@ export function useDimensions(app: Hono<OpacityEnv>) {
 				sortOrder,
 				predecessor,
 				where: { dimensions: { some: { dimension: { name: id } } } },
+				ownerId: owner?.id,
 				dimojiWorkflow: c.env.DIMOJI_GEN_WORKFLOW,
 			}),
 		);

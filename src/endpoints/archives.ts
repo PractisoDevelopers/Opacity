@@ -25,6 +25,7 @@ export function useArchives(app: Hono<OpacityEnv>) {
 				return;
 			}
 		}
+		const owner = jwt ? await prisma.owner.findFirst({ where: { clients: { some: { id: jwt.cid } } }, select: { id: true } }) : null;
 
 		return c.json(
 			await getArchives({
@@ -34,9 +35,24 @@ export function useArchives(app: Hono<OpacityEnv>) {
 				predecessor,
 				dimojiWorkflow: c.env.DIMOJI_GEN_WORKFLOW,
 				where,
+				ownerId: owner?.id,
 			}),
 		);
 	});
+}
+
+export function getArchiveSelectArguments(ownerId?: number) {
+	return {
+		id: true,
+		name: true,
+		updateTime: true,
+		uploadTime: true,
+		owner: { select: { name: true, id: true } },
+		downloads: true,
+		dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
+		_count: { select: { likes: true } },
+		likes: ownerId ? { where: { ownerId }, select: { archiveId: true } } : undefined,
+	};
 }
 
 export async function getArchives(opts: {
@@ -81,17 +97,7 @@ export async function getArchives(opts: {
 	}
 
 	const pagination = await opts.prisma.archive.findMany({
-		select: {
-			id: true,
-			name: true,
-			updateTime: true,
-			uploadTime: true,
-			owner: { select: { name: true, id: true } },
-			downloads: true,
-			dimensions: { select: { quizCount: true, dimension: { select: { name: true, emoji: true } } } },
-			_count: { select: { likes: true } },
-			likes: { where: { ownerId: opts.ownerId }, select: { archiveId: true } },
-		},
+		select: getArchiveSelectArguments(opts.ownerId),
 		where: opts.where,
 		orderBy,
 		cursor: opts.predecessor ? { id: opts.predecessor } : undefined,
