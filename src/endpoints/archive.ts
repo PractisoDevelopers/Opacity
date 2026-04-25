@@ -214,7 +214,7 @@ export function useArchive(app: Hono<OpacityEnv>) {
 		return new Response(null, { status: 204, headers: updatedHeaders });
 	});
 
-	app.get('/archive/:id/preview', async (c) => {
+	app.get('/archive/:id/preview', ownerMode, archiveAuth('read'), async (c) => {
 		const id = c.req.param('id');
 		const obj = await c.env.PSARCHIVE_BUCKET.get(id);
 		if (obj == null) {

@@ -15,14 +15,14 @@ export function useArchives(app: Hono<OpacityEnv>) {
 		const sortBy = query['by'],
 			sortOrder = query['order'] as SortOrder,
 			predecessor = query['predecessor'];
-		let where: Prisma.ArchiveWhereInput | undefined;
+		let accessControl: Prisma.ArchiveWhereInput | undefined;
 		if (jwt && !privileges.user.read && privileges.others.read) {
-			where = { owner: { NOT: { clients: { some: { id: jwt.cid } } } } };
+			accessControl = { owner: { NOT: { clients: { some: { id: jwt.cid } } } } };
 		} else if (privileges.user.read && !privileges.others.read) {
 			if (jwt) {
-				where = { owner: { clients: { some: { id: jwt.cid } } } };
+				accessControl = { owner: { clients: { some: { id: jwt.cid } } } };
 			} else {
-				return;
+				return c.json([]);
 			}
 		}
 		const owner = jwt ? await prisma.owner.findFirst({ where: { clients: { some: { id: jwt.cid } } }, select: { id: true } }) : null;
@@ -34,7 +34,7 @@ export function useArchives(app: Hono<OpacityEnv>) {
 				sortOrder,
 				predecessor,
 				dimojiWorkflow: c.env.DIMOJI_GEN_WORKFLOW,
-				where,
+				where: accessControl,
 				ownerId: owner?.id,
 			}),
 		);

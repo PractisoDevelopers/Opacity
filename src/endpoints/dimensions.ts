@@ -2,6 +2,9 @@ import { Hono } from 'hono';
 import usePrismaClient from '../usePrismaClient';
 import { getArchives, SortOrder } from './archives';
 import { HTTPException } from 'hono/http-exception';
+import { Prisma } from '@prisma/client';
+import ownerMode from '../middleware/ownerMode';
+import Privileges from '../privilege';
 
 const MAX_QUERY_SIZE = 100;
 const DEFAULT_QUERY_SIZE = 20;
@@ -48,7 +51,8 @@ export function useDimensions(app: Hono<OpacityEnv>) {
 		);
 	});
 
-	app.get('/dimension/:id/archives', async (c) => {
+	app.get('/dimension/:id/archives', ownerMode, async (c) => {
+		const privileges = new Privileges(c.get('ownerMode'));
 		const id = c.req.param('id');
 		const query = c.req.query();
 		const prisma = usePrismaClient(c.env.DATABASE_URL);
@@ -58,13 +62,24 @@ export function useDimensions(app: Hono<OpacityEnv>) {
 
 		const jwt = c.get('jwtPayload');
 		const owner = jwt ? await prisma.owner.findFirst({ where: { clients: { some: { id: jwt.cid } } }, select: { id: true } }) : null;
+		let accessControl: Prisma.ArchiveWhereInput | undefined;
+		if (jwt && !privileges.user.read && privileges.others.read) {
+			accessControl = { owner: { NOT: { clients: { some: { id: jwt.cid } } } } };
+		} else if (privileges.user.read && !privileges.others.read) {
+			if (jwt) {
+				accessControl = { owner: { clients: { some: { id: jwt.cid } } } };
+			} else {
+				return c.json([]);
+			}
+		}
+
 		return c.json(
 			await getArchives({
 				prisma,
 				sortBy,
 				sortOrder,
 				predecessor,
-				where: { dimensions: { some: { dimension: { name: id } } } },
+				where: { dimensions: { some: { dimension: { name: id } } }, ...accessControl },
 				ownerId: owner?.id,
 				dimojiWorkflow: c.env.DIMOJI_GEN_WORKFLOW,
 			}),
