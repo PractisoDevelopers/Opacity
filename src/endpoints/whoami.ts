@@ -41,8 +41,38 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 		await prisma.client.update({ where: { id: cid }, data: updateInput });
 		return new Response(null, { status: 201 });
 	});
+	app.delete('/whoami', async (c) => {
+		const cid = c.get('clientId');
+		const prisma = usePrismaClient(c.env.DATABASE_URL);
+		const owner = await prisma.owner.findFirst({
+			where: { clients: { some: { id: cid } } },
+			select: {
+				id: true,
+				archives: { select: { id: true } },
+			},
+		});
+
+		if (!owner) {
+			throw new HTTPException(403);
+		}
+
+		await prisma.$transaction(async (transaction) => {
+			await transaction.client.deleteMany({ where: { ownerId: owner.id } });
+			await transaction.owner.delete({ where: { id: owner.id } });
+		});
+
+		await deleteArchiveObjects(c.env.PSARCHIVE_BUCKET, owner.archives.map((archive) => archive.id));
+
+		return new Response(null, { status: 202 });
+	});
 }
 
 function validifyName(newName: any, domain: string) {
 	return Names.validify(newName, domain);
+}
+
+async function deleteArchiveObjects(bucket: R2Bucket, archiveIds: string[]) {
+	for (let index = 0; index < archiveIds.length; index += 100) {
+		await bucket.delete(archiveIds.slice(index, index + 100));
+	}
 }

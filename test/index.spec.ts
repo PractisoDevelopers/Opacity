@@ -131,6 +131,26 @@ describe('queries', () => {
 });
 
 describe('social', () => {
+	it('should delete an account and its archives', async () => {
+		const firstUpload = await uploadArchive(getUltimateArchive(), undefined, 'Account deletion 1');
+		const secondUpload = await uploadArchive(getUltimateArchive(), firstUpload.jwt, 'Account deletion 2');
+		const authHeaders = { authorization: `Bearer ${firstUpload.jwt}` };
+
+		const deleteResponse = await SELF.fetch(`${endpoint}/whoami`, {
+			method: 'DELETE',
+			headers: authHeaders,
+		});
+		expect(deleteResponse.status, 'failed to delete account').toBe(202);
+
+		const whoamiResponse = await SELF.fetch(`${endpoint}/whoami`, { headers: authHeaders });
+		expect(whoamiResponse.status, 'client still exists').toBe(403);
+
+		for (const archiveId of [firstUpload.archiveId, secondUpload.archiveId]) {
+			const archiveResponse = await SELF.fetch(`${endpoint}/archive/${archiveId}/metadata`);
+			expect(archiveResponse.status, `archive ${archiveId} still exists`).toBe(404);
+		}
+	});
+
 	it('should like and dislike', async () => {
 		const archive = getUltimateArchive();
 		const { jwt, archiveId } = await uploadArchive(archive);
