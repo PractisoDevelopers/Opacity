@@ -32,7 +32,11 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 		}
 		if (form.has('owner-name')) {
 			const newName = validifyName(form.get('owner-name'), 'owner name');
-			updateInput.owner = { update: { name: newName } };
+			if (newName) {
+				updateInput.owner = { update: { name: newName } };
+			} else {
+				updateInput.owner = { update: { name: null } };
+			}
 		}
 		prisma.client.update({ where: { id: cid }, data: updateInput });
 	});
