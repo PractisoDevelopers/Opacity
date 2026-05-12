@@ -38,7 +38,8 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 				updateInput.owner = { update: { name: null } };
 			}
 		}
-		prisma.client.update({ where: { id: cid }, data: updateInput });
+		await prisma.client.update({ where: { id: cid }, data: updateInput });
+		return new Response(null, { status: 201 });
 	});
 }
 
