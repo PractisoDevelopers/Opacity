@@ -131,6 +131,28 @@ describe('queries', () => {
 });
 
 describe('social', () => {
+	it('should fork a client without creating a new owner', async () => {
+		const { jwt, archiveId } = await uploadArchive(getUltimateArchive(), undefined, 'Fork account');
+		const authHeaders = { authorization: `Bearer ${jwt}` };
+		const originalWhoami = (await (await SELF.fetch(`${endpoint}/whoami`, { headers: authHeaders })).json()) as any;
+
+		const forkResponse = await SELF.fetch(`${endpoint}/whoami/fork`, {
+			method: 'POST',
+			headers: authHeaders,
+		});
+		expect(forkResponse.status, 'failed to fork client').toBe(201);
+		const fork = (await forkResponse.json()) as { jwt: string };
+		expect(fork.jwt).toMatch(new RegExp('(\..*){3}'));
+
+		const forkedWhoami = (await (
+			await SELF.fetch(`${endpoint}/whoami`, { headers: { authorization: `Bearer ${fork.jwt}` } })
+		).json()) as any;
+		expect(forkedWhoami.ownerId, 'fork created a new owner').toBe(originalWhoami.ownerId);
+		expect(forkedWhoami.clientName, 'fork did not reuse original client name').toBe(originalWhoami.clientName);
+
+		await SELF.fetch(`${endpoint}/archive/${archiveId}`, { method: 'DELETE', headers: authHeaders });
+	});
+
 	it('should delete an account and its archives', async () => {
 		const firstUpload = await uploadArchive(getUltimateArchive(), undefined, 'Account deletion 1');
 		const secondUpload = await uploadArchive(getUltimateArchive(), firstUpload.jwt, 'Account deletion 2');

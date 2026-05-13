@@ -4,6 +4,9 @@ import usePrismaClient from '../usePrismaClient';
 import { HTTPException } from 'hono/http-exception';
 import { Prisma } from '@prisma/client';
 import { Names } from '../validify/name';
+import { nanoid } from 'nanoid';
+import { clientIdSize } from '../magic';
+import * as jwt from 'hono/jwt';
 
 export function useWhoami(app: Hono<OpacityEnv>) {
 	app.all('/whoami', jwtMandated);
@@ -64,6 +67,32 @@ export function useWhoami(app: Hono<OpacityEnv>) {
 		await deleteArchiveObjects(c.env.PSARCHIVE_BUCKET, owner.archives.map((archive) => archive.id));
 
 		return new Response(null, { status: 202 });
+	});
+	app.post('/whoami/fork', jwtMandated, async (c) => {
+		const cid = c.get('clientId');
+		const prisma = usePrismaClient(c.env.DATABASE_URL);
+		const client = await prisma.client.findUnique({
+			where: { id: cid },
+			select: { name: true, ownerId: true },
+		});
+
+		if (!client) {
+			throw new HTTPException(403);
+		}
+
+		let clientName = client.name;
+		const contentType = c.req.header('content-type');
+		if (contentType?.includes('multipart/form-data') || contentType?.includes('application/x-www-form-urlencoded')) {
+			const form = await c.req.formData();
+			if (form.has('client-name')) {
+				clientName = validifyName(form.get('client-name'), 'client name');
+			}
+		}
+
+		const clientId = nanoid(clientIdSize);
+		await prisma.client.create({ data: { id: clientId, name: clientName, ownerId: client.ownerId } });
+
+		return c.json({ jwt: await jwt.sign({ cid: clientId }, c.env.JWT_SECRET) }, 201);
 	});
 }
 
